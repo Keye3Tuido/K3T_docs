@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Hypothesis 测试缓存
+.hypothesis/
+
+# pytest
+.pytest_cache/
+
+# 生成器缓存（Mermaid.js 等）
+.cache/
+
+# Kiro
+.kiro/
+
+# 私密文档子模块内容（由 .gitmodules 管理）
+# docs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

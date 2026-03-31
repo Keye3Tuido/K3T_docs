@@ -1,0 +1,6 @@
+markdown
+pymdown-extensions
+Pygments
+python-docx
+openpyxl
+hypothesis
