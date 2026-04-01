@@ -605,12 +605,16 @@ class ContentRenderer:
         """将 PDF 渲染为 canvas，base64 存在隐藏 textarea 中避免 JS 阻塞。"""
         with open(path, 'rb') as f:
             b64 = base64.b64encode(f.read()).decode('ascii')
-        # 将 base64 分块存入多个隐藏 textarea，每块 512KB，避免单个 DOM 节点过大
+        # 将 base64 分块存入多个隐藏 textarea，每块 512KB
+        # 每个块之间插入进度更新脚本，让浏览器边解析边更新进度
         chunk_size = 512 * 1024
         chunks = [b64[i:i+chunk_size] for i in range(0, len(b64), chunk_size)]
         textarea_html = ''
         for i, chunk in enumerate(chunks):
             textarea_html += f'<textarea id="pdf-chunk-{i}" style="display:none;">{chunk}</textarea>\n'
+            # 每个块后插入进度更新（占总进度的 0-50%）
+            pct = int((i + 1) / len(chunks) * 50)
+            textarea_html += (f'<script>if(window.__loadSetPct)window.__loadSetPct({pct});</script>\n')
         return (
             f'{textarea_html}'
             f'<input type="hidden" id="pdf-chunk-count" value="{len(chunks)}">\n'
@@ -729,7 +733,7 @@ class ContentRenderer:
                 f'</div>')
 
     def _render_image(self, path: str) -> str:
-        """将图片转换为 base64 data URI，带加载占位。"""
+        """将图片转换为 base64 data URI，大图分块加载带进度。"""
         mime, _ = mimetypes.guess_type(path)
         if not mime:
             ext = os.path.splitext(path)[1].lower()
@@ -741,12 +745,43 @@ class ContentRenderer:
         size_str = f'{fsize/1024:.0f} KB' if fsize < 1024*1024 else f'{fsize/1024/1024:.1f} MB'
         with open(path, 'rb') as f:
             b64 = base64.b64encode(f.read()).decode('ascii')
-        return (f'<div class="image-viewer" style="text-align:center;">'
+
+        # 大于 200KB 的图片分块存储带进度
+        if len(b64) > 200 * 1024:
+            chunk_size = 256 * 1024
+            chunks = [b64[i:i+chunk_size] for i in range(0, len(b64), chunk_size)]
+            textarea_html = ''
+            for i, chunk in enumerate(chunks):
+                textarea_html += f'<textarea id="img-chunk-{i}" style="display:none;">{chunk}</textarea>\n'
+                pct = int((i + 1) / len(chunks) * 50)
+                textarea_html += f'<script>if(window.__loadSetPct)window.__loadSetPct({50+pct});</script>\n'
+            return (
+                f'{textarea_html}'
+                f'<input type="hidden" id="img-chunk-count" value="{len(chunks)}">'
+                f'<input type="hidden" id="img-mime" value="{mime}">'
+                f'<div class="image-viewer" style="text-align:center;">'
                 f'<div id="img-loading" style="color:#888;padding:20px;">加载图片中 ({size_str})...</div>'
-                f'<img src="data:{mime};base64,{b64}" '
-                f'style="max-width:100%;height:auto;display:none;" alt="image" '
-                f'onload="this.style.display=\'block\';document.getElementById(\'img-loading\').remove();" />'
-                f'</div>')
+                f'<img id="img-target" style="max-width:100%;height:auto;display:none;" alt="image" />'
+                f'</div>'
+                f'<script>'
+                f'(function(){{'
+                f'var count=parseInt(document.getElementById("img-chunk-count").value);'
+                f'var b64="";'
+                f'for(var i=0;i<count;i++){{var el=document.getElementById("img-chunk-"+i);b64+=el.value;el.remove();}}'
+                f'var mime=document.getElementById("img-mime").value;'
+                f'var img=document.getElementById("img-target");'
+                f'img.onload=function(){{img.style.display="block";document.getElementById("img-loading").remove();}};'
+                f'img.src="data:"+mime+";base64,"+b64;'
+                f'}})();'
+                f'</script>'
+            )
+        else:
+            return (f'<div class="image-viewer" style="text-align:center;">'
+                    f'<div id="img-loading" style="color:#888;padding:20px;">加载图片中 ({size_str})...</div>'
+                    f'<img src="data:{mime};base64,{b64}" '
+                    f'style="max-width:100%;height:auto;display:none;" alt="image" '
+                    f'onload="this.style.display=\'block\';document.getElementById(\'img-loading\').remove();" />'
+                    f'</div>')
 
     def _render_docx(self, path: str) -> str:
         """提取 DOCX 文档内容并转换为 HTML。"""
@@ -822,15 +857,30 @@ class ContentRenderer:
                 parts.append('</tr>')
             parts.append('</table>')
 
-        # 图片（内嵌 base64）
+        # 图片（内嵌 base64，大图分块）
+        img_idx = 0
         for rel in doc.part.rels.values():
             if "image" in rel.reltype:
                 try:
                     img_data = rel.target_part.blob
                     content_type = rel.target_part.content_type
                     b64 = base64.b64encode(img_data).decode('ascii')
-                    parts.append(f'<img src="data:{content_type};base64,{b64}" '
-                                 f'style="max-width:100%;height:auto;" />')
+                    if len(b64) > 200 * 1024:
+                        # 大图分块
+                        chunk_size = 256 * 1024
+                        chunks = [b64[j:j+chunk_size] for j in range(0, len(b64), chunk_size)]
+                        for ci, chunk in enumerate(chunks):
+                            parts.append(f'<textarea id="docx-img-{img_idx}-{ci}" style="display:none;">{chunk}</textarea>')
+                        parts.append(f'<img id="docx-img-target-{img_idx}" style="max-width:100%;height:auto;display:none;" />')
+                        parts.append(f'<script>(function(){{var b64="";for(var i=0;i<{len(chunks)};i++)'
+                                     f'{{var el=document.getElementById("docx-img-{img_idx}-"+i);b64+=el.value;el.remove();}}'
+                                     f'var img=document.getElementById("docx-img-target-{img_idx}");'
+                                     f'img.onload=function(){{img.style.display="block";}};'
+                                     f'img.src="data:{content_type};base64,"+b64;}})();</script>')
+                    else:
+                        parts.append(f'<img src="data:{content_type};base64,{b64}" '
+                                     f'style="max-width:100%;height:auto;" />')
+                    img_idx += 1
                 except Exception:
                     pass
 
