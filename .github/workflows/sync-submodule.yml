@@ -16,7 +16,7 @@ jobs:
 
       - name: Update submodule to latest
         run: |
-          git -C docs fetch origin docs
+          git -C docs fetch origin docs:refs/remotes/origin/docs
           git submodule update --remote docs
 
       - name: Check for changes
