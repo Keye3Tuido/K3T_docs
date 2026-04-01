@@ -15,11 +15,7 @@ jobs:
           submodules: true
 
       - name: Update submodule to latest
-        run: |
-          cd docs
-          git checkout docs
-          git pull origin docs
-          cd ..
+        run: git submodule update --remote docs
 
       - name: Check for changes
         id: check
