@@ -46,9 +46,8 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monosp
   flex-direction: column; color: #888; font-size: 0.95em; }
 #page-loading .bar-wrap { width: 60%; max-width: 300px; height: 4px; background: #eee;
   border-radius: 2px; margin-top: 12px; overflow: hidden; }
-#page-loading .bar { width: 30%; height: 100%; background: #4a90d9; border-radius: 2px;
-  animation: loading-slide 1.2s ease-in-out infinite; }
-@keyframes loading-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+#page-loading .bar { height: 100%; background: #4a90d9; border-radius: 2px;
+  width: 0%; transition: width 0.3s; }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -131,7 +130,33 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
 
 </head>
 <body oncontextmenu="return false;">
-<div id="page-loading"><span>加载中...</span><div class="bar-wrap"><div class="bar"></div></div></div>
+<div id="page-loading"><span id="load-text">加载中 0%</span><div class="bar-wrap"><div class="bar" id="load-bar"></div></div></div>
+<script>
+(function(){
+  var bar=document.getElementById("load-bar");
+  var txt=document.getElementById("load-text");
+  var pct=0;
+  // 估算进度：定时检查 DOM 节点数增长
+  var timer=setInterval(function(){
+    var nodes=document.body.getElementsByTagName("*").length;
+    // 用节点数估算，每 100 个节点约 5%，上限 90%
+    var est=Math.min(90, Math.round(nodes/20));
+    if(est>pct)pct=est;
+    bar.style.width=pct+"%";
+    txt.textContent="加载中 "+pct+"%";
+  },200);
+  // readyState 变化
+  document.addEventListener("readystatechange",function(){
+    if(document.readyState==="interactive"){
+      pct=Math.max(pct,70);
+      bar.style.width=pct+"%";
+      txt.textContent="加载中 "+pct+"%";
+    }
+  });
+  window.__loadTimer=timer;
+  window.__loadSetPct=function(p){pct=p;bar.style.width=p+"%";txt.textContent="加载中 "+p+"%";};
+})();
+</script>
 <div class="markdown-body"><h1 id="git-完整命令参考手册">Git 完整命令参考手册</h1>
 <hr />
 <h2 id="目录">目录</h2>
@@ -11047,6 +11072,18 @@ Expecting `+Ze.join(", ")+", got '"+(this.terminals_[Pe]||Pe)+"'":At="Parse erro
 </script>
 <script>document.addEventListener("DOMContentLoaded",function(){mermaid.initialize({startOnLoad:true});});</script>
 
-<script>document.getElementById("page-loading").remove();</script>
+<script>
+clearInterval(window.__loadTimer);
+(function(){
+  var bar=document.getElementById("load-bar");
+  var txt=document.getElementById("load-text");
+  if(bar)bar.style.width="100%";
+  if(txt)txt.textContent="加载中 100%";
+  setTimeout(function(){
+    var el=document.getElementById("page-loading");
+    if(el)el.remove();
+  },300);
+})();
+</script>
 </body>
 </html>

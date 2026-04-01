@@ -46,15 +46,52 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monosp
   flex-direction: column; color: #888; font-size: 0.95em; }
 #page-loading .bar-wrap { width: 60%; max-width: 300px; height: 4px; background: #eee;
   border-radius: 2px; margin-top: 12px; overflow: hidden; }
-#page-loading .bar { width: 30%; height: 100%; background: #4a90d9; border-radius: 2px;
-  animation: loading-slide 1.2s ease-in-out infinite; }
-@keyframes loading-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+#page-loading .bar { height: 100%; background: #4a90d9; border-radius: 2px;
+  width: 0%; transition: width 0.3s; }
 </style>
 
 </head>
 <body oncontextmenu="return false;">
-<div id="page-loading"><span>加载中...</span><div class="bar-wrap"><div class="bar"></div></div></div>
+<div id="page-loading"><span id="load-text">加载中 0%</span><div class="bar-wrap"><div class="bar" id="load-bar"></div></div></div>
+<script>
+(function(){
+  var bar=document.getElementById("load-bar");
+  var txt=document.getElementById("load-text");
+  var pct=0;
+  // 估算进度：定时检查 DOM 节点数增长
+  var timer=setInterval(function(){
+    var nodes=document.body.getElementsByTagName("*").length;
+    // 用节点数估算，每 100 个节点约 5%，上限 90%
+    var est=Math.min(90, Math.round(nodes/20));
+    if(est>pct)pct=est;
+    bar.style.width=pct+"%";
+    txt.textContent="加载中 "+pct+"%";
+  },200);
+  // readyState 变化
+  document.addEventListener("readystatechange",function(){
+    if(document.readyState==="interactive"){
+      pct=Math.max(pct,70);
+      bar.style.width=pct+"%";
+      txt.textContent="加载中 "+pct+"%";
+    }
+  });
+  window.__loadTimer=timer;
+  window.__loadSetPct=function(p){pct=p;bar.style.width=p+"%";txt.textContent="加载中 "+p+"%";};
+})();
+</script>
 <div class="docx-content"><div style="color:#888;font-size:0.85em;margin-bottom:12px;">共 85 个段落，0 个表格</div><p>特殊符号</p><p>这是一些有特殊意义的点划组合。它们由二个字母的摩尔斯电码连成一个使用，这样可以省去正常时把它们做为两个字母发送所必须的中间间隔时间。</p><p>AR：·—·—·（停止，消息结束）</p><p>AS：·—···（等待）</p><p>K：—·—（邀请发射信号）（一般跟随AR，表示“该你了”）</p><p>SK：···—·—（终止，联络结束）</p><p>BT：—···—（<a href="https://baike.sogou.com/lemma/ShowInnerLink.htm?lemmaId=7848441&amp;ss_c=ssc.citiao.link" target="_blank" rel="noopener noreferrer">分隔符</a>）</p><p>···—·（我将重新发送最后一个单词）</p><p>·· ··（同样）</p><p>········（错误）</p><p>常用缩写</p><p>摩尔斯电码表缩写和同一符号不同，缩写保留着字元中间的间隔，它们并没有被连成一个使用。</p><p>A - All after （问号后用于请求重复）</p><p>AB - All before （同样）</p><p>ABT - About（关于）</p><p>ADS - Address（地址）</p><p>AGN - Again（再一次）</p><p>ANT - Antenna （天线）</p><p>ABN - All between（之间的所有）</p><p>C - Yes（是，好）</p><p>CLG - Calling（拨打）</p><p>CQ - Calling any station（连络任一站台）</p><p>CUL - See you later（待会见）</p><p>CUZ - Because（因为）</p><p>CW - Continuous wave（连续波）</p><p>CX - Conditions（状况）</p><p>DE - From（来自）</p><p>DX - Distance （sometimes refers to long distance contact）（长程通讯）</p><p>ES - And （和）</p><p>FB - Fine business （类似于“确定”）</p><p>FER - For （为了）</p><p>FREQ - <a href="https://baike.sogou.com/lemma/ShowInnerLink.htm?lemmaId=154825467&amp;ss_c=ssc.citiao.link" target="_blank" rel="noopener noreferrer">Frequency</a>（频率）</p><p>GA - Good <a href="https://baike.sogou.com/lemma/ShowInnerLink.htm?lemmaId=10913985&amp;ss_c=ssc.citiao.link" target="_blank" rel="noopener noreferrer">afternoon</a> or Go ahead （depending on context）（<a href="https://baike.sogou.com/lemma/ShowInnerLink.htm?lemmaId=32371324&amp;ss_c=ssc.citiao.link" target="_blank" rel="noopener noreferrer">午安</a>）</p><p>GE - Good evening（晚安）</p><p>GM - Good morning（早安）</p><p>GND - Ground （ground potential）（地表）</p><p>GD - Good（好）</p><p>HI - Laughter（笑；笑声）</p><p>HR - Here（这里）</p><p>HV - Have（有）</p><p>MILS - Milliamperes（毫安）</p><p>NIL - Nothing（无）</p><p>NR - Number（编号）</p><p>OB - Old boy（<a href="https://baike.sogou.com/lemma/ShowInnerLink.htm?lemmaId=102013897&amp;ss_c=ssc.citiao.link" target="_blank" rel="noopener noreferrer">老男孩</a>）</p><p>OC - Old chap（老兄）</p><p>OM - Old man （any male amateur radio operator is an OM）（任何男性<a href="https://baike.sogou.com/lemma/ShowInnerLink.htm?lemmaId=58381&amp;ss_c=ssc.citiao.link" target="_blank" rel="noopener noreferrer">业余无线电</a>操作员是一个OM）</p><p>OP - Operator（操作员）</p><p>OT - Old timer（老手）</p><p>PSE - Please（请）</p><p>PWR - Power（功率）</p><p>R I - acknowledge or decimal point （承认或<a href="https://baike.sogou.com/lemma/ShowInnerLink.htm?lemmaId=2129567&amp;ss_c=ssc.citiao.link" target="_blank" rel="noopener noreferrer">小数点</a>）（根据上下文确定）</p><p>RCVR - Receiver（接收器）</p><p>RPT - Repeat or report）（重复或报告）（根据上下文确定）</p><p>RTTY - Radio teletype （无线电电传）</p><p>RX - Receive（接收）</p><p>SASE - Self addressed, stamped envelope （自我解决，盖章信封）</p><p>SED - Said（说）</p><p>SEZ - Says （说）</p><p>SIG - Signal（讯号）</p><p>SIGS - Signals （信号）</p><p>SKED - Schedule（行程）</p><p>SN - Soon（很快=不久将来）</p><p>SOS -（<a href="https://baike.sogou.com/lemma/ShowInnerLink.htm?lemmaId=11041981&amp;ss_c=ssc.citiao.link" target="_blank" rel="noopener noreferrer">紧急呼救</a>=国际通用）</p><p>SRI - Sorry（抱歉）</p><p>STN - Station（电台）</p><p>TEMP - Temperature（气温）</p><p>TMW - Tomorrow（明日）</p><p>TNX - Thanks（感谢）</p><p>TU - Thank you（感谢你）</p><p>TX - Transmit（发射器）</p><p>U - You （你）</p><p>UR - Your or you&#x27;re （您或您已经）（根据上下文确定）</p><p>URS - Yours （你的）</p><p>VY - Very （非常）</p><p>WDS - Words （词语）</p><p>WKD - Worked （工作）</p><p>WL - Will （将）</p><p>WUD - Would （会）</p><p>WX - Weather（天气）</p><p>XMTR - <a href="https://baike.sogou.com/lemma/ShowInnerLink.htm?lemmaId=354137&amp;ss_c=ssc.citiao.link" target="_blank" rel="noopener noreferrer">Transmitter</a>（<a href="https://baike.sogou.com/lemma/ShowInnerLink.htm?lemmaId=337423&amp;ss_c=ssc.citiao.link" target="_blank" rel="noopener noreferrer">发射机</a>）</p><p>XYL - Wife（妻子）</p><p>YL - Young lady （used of any female）（年轻女子）</p><p>73 - Best regards（最好的祝福）</p><p>88 - Love and kisses（爱与吻之告别）（注意应该使用在“异性”之间）</p><p>99 - go away（被要求离开，非友善）</p></div>
-<script>document.getElementById("page-loading").remove();</script>
+<script>
+clearInterval(window.__loadTimer);
+(function(){
+  var bar=document.getElementById("load-bar");
+  var txt=document.getElementById("load-text");
+  if(bar)bar.style.width="100%";
+  if(txt)txt.textContent="加载中 100%";
+  setTimeout(function(){
+    var el=document.getElementById("page-loading");
+    if(el)el.remove();
+  },300);
+})();
+</script>
 </body>
 </html>
