@@ -258,6 +258,26 @@ class ContentRenderer:
             html_content,
         )
 
+        # 将 base64 图片的 <img> 替换为 canvas 渲染（防止提取原图）
+        img_counter = [0]
+        def _img_to_canvas(match):
+            full = match.group(0)
+            src_match = re.search(r'src="(data:[^"]+)"', full)
+            if not src_match:
+                return full
+            src = src_match.group(1)
+            idx = img_counter[0]
+            img_counter[0] += 1
+            cid = f'md-img-{idx}'
+            return (f'<canvas id="{cid}" style="max-width:100%;height:auto;display:inline-block;"></canvas>'
+                    f'<script>(function(){{var img=new Image();img.onload=function(){{'
+                    f'var c=document.getElementById("{cid}");c.width=img.naturalWidth;c.height=img.naturalHeight;'
+                    f'c.style.width="100%";c.style.maxWidth=img.naturalWidth+"px";'
+                    f'c.style.aspectRatio=img.naturalWidth+"/"+img.naturalHeight;'
+                    f'c.getContext("2d").drawImage(img,0,0);img.src="";img=null;}};'
+                    f'img.src="{src}";}})();</script>')
+        html_content = re.sub(r'<img[^>]+src="data:[^"]*"[^>]*/?\s*>', _img_to_canvas, html_content)
+
         return f'<div class="markdown-body">{html_content}</div>'
 
     @staticmethod
@@ -733,7 +753,7 @@ class ContentRenderer:
                 f'</div>')
 
     def _render_image(self, path: str) -> str:
-        """将图片转换为 base64 data URI，大图分块加载带进度。"""
+        """将图片渲染到 canvas 上，销毁原始 base64 数据防止提取。"""
         mime, _ = mimetypes.guess_type(path)
         if not mime:
             ext = os.path.splitext(path)[1].lower()
@@ -746,42 +766,49 @@ class ContentRenderer:
         with open(path, 'rb') as f:
             b64 = base64.b64encode(f.read()).decode('ascii')
 
-        # 大于 200KB 的图片分块存储带进度
-        if len(b64) > 200 * 1024:
-            chunk_size = 256 * 1024
-            chunks = [b64[i:i+chunk_size] for i in range(0, len(b64), chunk_size)]
-            textarea_html = ''
-            for i, chunk in enumerate(chunks):
-                textarea_html += f'<textarea id="img-chunk-{i}" style="display:none;">{chunk}</textarea>\n'
+        # 分块存储 base64
+        chunk_size = 256 * 1024
+        chunks = [b64[i:i+chunk_size] for i in range(0, len(b64), chunk_size)]
+        textarea_html = ''
+        for i, chunk in enumerate(chunks):
+            textarea_html += f'<textarea id="img-chunk-{i}" style="display:none;">{chunk}</textarea>\n'
+            if len(chunks) > 1:
                 pct = int((i + 1) / len(chunks) * 50)
                 textarea_html += f'<script>if(window.__loadSetPct)window.__loadSetPct({50+pct});</script>\n'
-            return (
-                f'{textarea_html}'
-                f'<input type="hidden" id="img-chunk-count" value="{len(chunks)}">'
-                f'<input type="hidden" id="img-mime" value="{mime}">'
-                f'<div class="image-viewer" style="text-align:center;">'
-                f'<div id="img-loading" style="color:#888;padding:20px;">加载图片中 ({size_str})...</div>'
-                f'<img id="img-target" style="max-width:100%;height:auto;display:none;" alt="image" />'
-                f'</div>'
-                f'<script>'
-                f'(function(){{'
-                f'var count=parseInt(document.getElementById("img-chunk-count").value);'
-                f'var b64="";'
-                f'for(var i=0;i<count;i++){{var el=document.getElementById("img-chunk-"+i);b64+=el.value;el.remove();}}'
-                f'var mime=document.getElementById("img-mime").value;'
-                f'var img=document.getElementById("img-target");'
-                f'img.onload=function(){{img.style.display="block";document.getElementById("img-loading").remove();}};'
-                f'img.src="data:"+mime+";base64,"+b64;'
-                f'}})();'
-                f'</script>'
-            )
-        else:
-            return (f'<div class="image-viewer" style="text-align:center;">'
-                    f'<div id="img-loading" style="color:#888;padding:20px;">加载图片中 ({size_str})...</div>'
-                    f'<img src="data:{mime};base64,{b64}" '
-                    f'style="max-width:100%;height:auto;display:none;" alt="image" '
-                    f'onload="this.style.display=\'block\';document.getElementById(\'img-loading\').remove();" />'
-                    f'</div>')
+
+        return (
+            f'{textarea_html}'
+            f'<input type="hidden" id="img-chunk-count" value="{len(chunks)}">'
+            f'<input type="hidden" id="img-mime" value="{mime}">'
+            f'<div class="image-viewer" style="text-align:center;">'
+            f'<div id="img-loading" style="color:#888;padding:20px;">加载图片中 ({size_str})...</div>'
+            f'<canvas id="img-canvas" style="max-width:100%;height:auto;display:none;"></canvas>'
+            f'</div>'
+            f'<script>'
+            f'(function(){{'
+            f'var count=parseInt(document.getElementById("img-chunk-count").value);'
+            f'var b64="";'
+            f'for(var i=0;i<count;i++){{var el=document.getElementById("img-chunk-"+i);b64+=el.value;el.remove();}}'
+            f'var mime=document.getElementById("img-mime").value;'
+            f'var img=new Image();'
+            f'img.onload=function(){{'
+            f'  var c=document.getElementById("img-canvas");'
+            f'  c.width=img.naturalWidth;'
+            f'  c.height=img.naturalHeight;'
+            f'  c.style.maxWidth="100%";'
+            f'  c.style.height="auto";'
+            f'  c.style.aspectRatio=img.naturalWidth+"/"+img.naturalHeight;'
+            f'  c.getContext("2d").drawImage(img,0,0);'
+            f'  c.style.display="block";'
+            f'  c.style.margin="0 auto";'
+            f'  document.getElementById("img-loading").remove();'
+            f'  img.src="";img=null;'  # 销毁原始数据
+            f'}};'
+            f'img.src="data:"+mime+";base64,"+b64;'
+            f'b64=null;'  # 释放内存
+            f'}})();'
+            f'</script>'
+        )
 
     def _render_docx(self, path: str) -> str:
         """提取 DOCX 文档内容并转换为 HTML。"""
@@ -857,7 +884,7 @@ class ContentRenderer:
                 parts.append('</tr>')
             parts.append('</table>')
 
-        # 图片（内嵌 base64，大图分块）
+        # 图片（渲染到 canvas 防止提取，大图分块）
         img_idx = 0
         for rel in doc.part.rels.values():
             if "image" in rel.reltype:
@@ -865,21 +892,27 @@ class ContentRenderer:
                     img_data = rel.target_part.blob
                     content_type = rel.target_part.content_type
                     b64 = base64.b64encode(img_data).decode('ascii')
+                    cid = f'docx-img-{img_idx}'
                     if len(b64) > 200 * 1024:
-                        # 大图分块
                         chunk_size = 256 * 1024
                         chunks = [b64[j:j+chunk_size] for j in range(0, len(b64), chunk_size)]
                         for ci, chunk in enumerate(chunks):
-                            parts.append(f'<textarea id="docx-img-{img_idx}-{ci}" style="display:none;">{chunk}</textarea>')
-                        parts.append(f'<img id="docx-img-target-{img_idx}" style="max-width:100%;height:auto;display:none;" />')
+                            parts.append(f'<textarea id="{cid}-c{ci}" style="display:none;">{chunk}</textarea>')
+                        parts.append(f'<canvas id="{cid}" style="max-width:100%;height:auto;"></canvas>')
                         parts.append(f'<script>(function(){{var b64="";for(var i=0;i<{len(chunks)};i++)'
-                                     f'{{var el=document.getElementById("docx-img-{img_idx}-"+i);b64+=el.value;el.remove();}}'
-                                     f'var img=document.getElementById("docx-img-target-{img_idx}");'
-                                     f'img.onload=function(){{img.style.display="block";}};'
-                                     f'img.src="data:{content_type};base64,"+b64;}})();</script>')
+                                     f'{{var el=document.getElementById("{cid}-c"+i);b64+=el.value;el.remove();}}'
+                                     f'var img=new Image();img.onload=function(){{'
+                                     f'var c=document.getElementById("{cid}");c.width=img.naturalWidth;c.height=img.naturalHeight;'
+                                     f'c.style.aspectRatio=img.naturalWidth+"/"+img.naturalHeight;'
+                                     f'c.getContext("2d").drawImage(img,0,0);img.src="";img=null;}};'
+                                     f'img.src="data:{content_type};base64,"+b64;b64=null;}})();</script>')
                     else:
-                        parts.append(f'<img src="data:{content_type};base64,{b64}" '
-                                     f'style="max-width:100%;height:auto;" />')
+                        parts.append(f'<canvas id="{cid}" style="max-width:100%;height:auto;"></canvas>')
+                        parts.append(f'<script>(function(){{var img=new Image();img.onload=function(){{'
+                                     f'var c=document.getElementById("{cid}");c.width=img.naturalWidth;c.height=img.naturalHeight;'
+                                     f'c.style.aspectRatio=img.naturalWidth+"/"+img.naturalHeight;'
+                                     f'c.getContext("2d").drawImage(img,0,0);img.src="";img=null;}};'
+                                     f'img.src="data:{content_type};base64,{b64}";}})();</script>')
                     img_idx += 1
                 except Exception:
                     pass
@@ -1139,7 +1172,7 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans
        margin: 0; padding: 20px 40px; line-height: 1.6; color: #333; background: #fff; }}
 a {{ color: #0366d6; text-decoration: none; }}
 a:hover {{ text-decoration: underline; }}
-img {{ max-width: 100%; height: auto; }}
+img {{ max-width: 100%; height: auto; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; pointer-events: none; }}
 table {{ border-collapse: collapse; width: 100%; margin: 1em 0; overflow-x: auto; display: block; }}
 th, td {{ border: 1px solid #ddd; padding: 8px 12px; text-align: left; white-space: nowrap; }}
 th {{ background: #f5f5f5; font-weight: 600; }}
@@ -1354,9 +1387,10 @@ class IndexGenerator:
     def _build_css(self) -> str:
         """生成索引页的内嵌 CSS。"""
         return '''
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-touch-callout: none; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-       background: #f8f9fa; color: #333; min-height: 100vh; }
+       background: #f8f9fa; color: #333; min-height: 100vh; -webkit-user-select: none; user-select: none; }
+img { -webkit-touch-callout: none; pointer-events: none; }
 .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
 .title { font-size: 1.8em; margin-bottom: 4px; color: #2c3e50; text-shadow: 0 1px 2px rgba(255,255,255,0.8); }
 .stats { color: #666; font-size: 0.9em; margin-bottom: 24px; }
