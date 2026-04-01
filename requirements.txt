@@ -5,6 +5,7 @@ python-docx
 openpyxl
 pyyaml
 latex2mathml
+Pillow
 
 # dev / test
 hypothesis

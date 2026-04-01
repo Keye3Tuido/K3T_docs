@@ -1262,11 +1262,33 @@ clearInterval(window.__loadTimer);
 class IndexGenerator:
     """根据文件树生成轻量的 index.html 内容。"""
 
-    def generate_index(self, file_tree: FileTree) -> str:
+    def generate_index(self, file_tree: FileTree, bg_image_b64: str = '', bg_mime: str = 'image/jpeg', watermark_b64: str = '') -> str:
         """根据文件树生成 index.html 内容。"""
         tree_html = ''
         for child in file_tree.root.children:
             tree_html += self._build_tree_html(child)
+        bg_style = ''
+        if bg_image_b64:
+            bg_style = (f'background-image: url(data:{bg_mime};base64,{bg_image_b64});'
+                        f'background-size: cover; background-position: center; background-attachment: fixed;')
+        watermark_html = ''
+        if watermark_b64:
+            # 用 JS 动态计算大小，抵消浏览器缩放
+            watermark_html = (
+                f'<img id="watermark" src="data:image/png;base64,{watermark_b64}" '
+                f'style="position:fixed;width:120px;height:120px;'
+                f'opacity:0.35;pointer-events:none;z-index:9998;user-select:none;" '
+                f'draggable="false" alt="" />'
+                f'<script>'
+                f'(function(){{'
+                f'var wm=document.getElementById("watermark");'
+                f'function fixPos(){{var z=window.devicePixelRatio||1;var s=120/z;'
+                f'wm.style.width=s+"px";wm.style.height=s+"px";'
+                f'wm.style.bottom=(12/z)+"px";wm.style.right=(12/z)+"px";}}'
+                f'fixPos();window.addEventListener("resize",fixPos);'
+                f'}})();'
+                f'</script>'
+            )
         return f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1277,7 +1299,7 @@ class IndexGenerator:
 {self._build_css()}
 </style>
 </head>
-<body oncontextmenu="return false;">
+<body oncontextmenu="return false;" style="{bg_style}">
 <div class="container">
 <h1 class="title">📚 文档索引</h1>
 <p class="stats">{file_tree.file_count} 个文件，{file_tree.dir_count} 个目录</p>
@@ -1287,6 +1309,7 @@ class IndexGenerator:
 </ul>
 </div>
 </div>
+{watermark_html}
 <script>
 {self._build_js()}
 </script>
@@ -1335,10 +1358,11 @@ class IndexGenerator:
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
        background: #f8f9fa; color: #333; min-height: 100vh; }
 .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
-.title { font-size: 1.8em; margin-bottom: 4px; color: #2c3e50; }
-.stats { color: #888; font-size: 0.9em; margin-bottom: 24px; }
-.tree-container { background: white; border-radius: 8px; padding: 20px 24px;
-                  box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.title { font-size: 1.8em; margin-bottom: 4px; color: #2c3e50; text-shadow: 0 1px 2px rgba(255,255,255,0.8); }
+.stats { color: #666; font-size: 0.9em; margin-bottom: 24px; }
+.tree-container { background: rgba(255,255,255,0.5); border-radius: 8px; padding: 20px 24px;
+                  box-shadow: 0 4px 16px rgba(0,0,0,0.15); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+                  border: 1px solid rgba(255,255,255,0.4); }
 ul { list-style: none; }
 .tree-root { padding: 0; }
 .tree-children { padding-left: 20px; }
@@ -1346,8 +1370,8 @@ ul { list-style: none; }
 .tree-file { margin: 2px 0; padding: 2px 0; }
 .dir-toggle { cursor: pointer; user-select: none; display: inline-block; width: 16px;
               font-size: 0.7em; color: #888; }
-.dir-name { font-weight: 500; cursor: pointer; }
-.tree-file a { text-decoration: none; color: #0366d6; transition: color 0.15s; }
+.dir-name { font-weight: 600; cursor: pointer; color: #1a1a1a; }
+.tree-file a { text-decoration: none; color: #0356b6; font-weight: 500; transition: color 0.15s; }
 .tree-file a:hover { color: #0250a3; text-decoration: underline; }
 @media (max-width: 600px) {
   .container { padding: 20px 12px; }
@@ -1443,9 +1467,63 @@ class IndexBuilder:
 
         _process_node(file_tree.root)
 
-        # 4. 生成 index.html
+        # 4. 加载背景图和水印（从 icons 目录）
+        bg_b64 = ''
+        bg_mime = 'image/jpeg'
+        watermark_b64 = ''
+        icons_dir = os.path.join(output_dir, 'icons')
+        if os.path.isdir(icons_dir):
+            from io import BytesIO
+            try:
+                from PIL import Image
+                has_pil = True
+            except ImportError:
+                has_pil = False
+                print("⚠️  Pillow 未安装，背景图不会被压缩")
+
+            for fname in os.listdir(icons_dir):
+                fpath = os.path.join(icons_dir, fname)
+                # 背景图：DREAMS 开头
+                if fname.upper().startswith('DREAMS') and fname.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    print(f"🎨 加载背景图: {fname}")
+                    if has_pil:
+                        img = Image.open(fpath)
+                        # 压缩：限制最大宽度 1920px，JPEG 质量 60
+                        max_w = 1920
+                        if img.width > max_w:
+                            ratio = max_w / img.width
+                            img = img.resize((max_w, int(img.height * ratio)), Image.LANCZOS)
+                        buf = BytesIO()
+                        img.convert('RGB').save(buf, format='JPEG', quality=60, optimize=True)
+                        bg_b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+                        bg_mime = 'image/jpeg'
+                        print(f"   压缩后: {len(buf.getvalue())/1024:.0f} KB")
+                    else:
+                        with open(fpath, 'rb') as f:
+                            bg_b64 = base64.b64encode(f.read()).decode('ascii')
+                        bg_mime = 'image/jpeg' if fname.lower().endswith(('.jpg', '.jpeg')) else 'image/png'
+
+                # 水印：3' 开头的 png
+                elif fname.startswith("3") and fname.lower().endswith('.png'):
+                    print(f"🔖 加载水印: {fname}")
+                    if has_pil:
+                        img = Image.open(fpath)
+                        # 缩小水印到 160px 宽
+                        max_w = 160
+                        if img.width > max_w:
+                            ratio = max_w / img.width
+                            img = img.resize((max_w, int(img.height * ratio)), Image.LANCZOS)
+                        buf = BytesIO()
+                        img.save(buf, format='PNG', optimize=True)
+                        watermark_b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+                        print(f"   压缩后: {len(buf.getvalue())/1024:.0f} KB")
+                    else:
+                        with open(fpath, 'rb') as f:
+                            watermark_b64 = base64.b64encode(f.read()).decode('ascii')
+
+        # 5. 生成 index.html
         print("📋 生成 index.html...")
-        index_html = index_gen.generate_index(file_tree)
+        index_html = index_gen.generate_index(file_tree, bg_image_b64=bg_b64, bg_mime=bg_mime, watermark_b64=watermark_b64)
 
         # 5. 写入文件
         print("💾 写入文件...")

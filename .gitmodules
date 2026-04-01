@@ -2,3 +2,7 @@
 	path = docs
 	url = https://github.com/Keye3Tuido/K3T_private
 	branch = docs
+[submodule "icons"]
+	path = icons
+	url = https://github.com/Keye3Tuido/K3T_private.git
+	branch = icons
