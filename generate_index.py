@@ -255,26 +255,45 @@ class ContentRenderer:
         return f'<div class="markdown-body">{html_content}</div>'
 
     def _render_pdf(self, path: str) -> str:
-        """将 PDF 文件 base64 编码嵌入，使用 Blob URL 渲染以支持大文件。"""
+        """将 PDF 渲染为 canvas 页面，兼容手机浏览器。"""
         with open(path, 'rb') as f:
             b64 = base64.b64encode(f.read()).decode('ascii')
-        # 用 JS 将 base64 转为 Blob URL，再赋给 iframe src
-        # 这样可以绕过浏览器对 data URI 大小的限制
-        return (f'<div class="pdf-viewer" style="width:100%;height:90vh;">'
-                f'<iframe width="100%" height="100%" style="border:none;" oncontextmenu="return false;"></iframe>'
-                f'</div>'
-                f'<script>'
-                f'(function(){{'
-                f'var b64="{b64}";'
-                f'var bin=atob(b64);'
-                f'var len=bin.length;'
-                f'var bytes=new Uint8Array(len);'
-                f'for(var i=0;i<len;i++)bytes[i]=bin.charCodeAt(i);'
-                f'var blob=new Blob([bytes],{{type:"application/pdf"}});'
-                f'var url=URL.createObjectURL(blob)+"#toolbar=0&navpanes=0&scrollbar=1";'
-                f'document.currentScript.previousElementSibling.querySelector("iframe").src=url;'
-                f'}})();'
-                f'</script>')
+        # 使用 pdf.js 将每页渲染为 canvas，手机和桌面都能看
+        return (
+            '<div id="pdf-container" style="width:100%;max-width:900px;margin:0 auto;"></div>\n'
+            '<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>\n'
+            '<script>\n'
+            'pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";\n'
+            '(function(){\n'
+            f'var b64="{b64}";\n'
+            'var bin=atob(b64);\n'
+            'var len=bin.length;\n'
+            'var bytes=new Uint8Array(len);\n'
+            'for(var i=0;i<len;i++)bytes[i]=bin.charCodeAt(i);\n'
+            'var container=document.getElementById("pdf-container");\n'
+            'pdfjsLib.getDocument({data:bytes}).promise.then(function(pdf){\n'
+            '  for(var p=1;p<=pdf.numPages;p++){\n'
+            '    (function(pageNum){\n'
+            '      pdf.getPage(pageNum).then(function(page){\n'
+            '        var vw=container.clientWidth||document.documentElement.clientWidth-40;\n'
+            '        var scale=vw/page.getViewport({scale:1}).width;\n'
+            '        var viewport=page.getViewport({scale:scale});\n'
+            '        var canvas=document.createElement("canvas");\n'
+            '        canvas.width=viewport.width;\n'
+            '        canvas.height=viewport.height;\n'
+            '        canvas.style.width="100%";\n'
+            '        canvas.style.height="auto";\n'
+            '        canvas.style.display="block";\n'
+            '        canvas.style.marginBottom="4px";\n'
+            '        container.appendChild(canvas);\n'
+            '        page.render({canvasContext:canvas.getContext("2d"),viewport:viewport});\n'
+            '      });\n'
+            '    })(p);\n'
+            '  }\n'
+            '});\n'
+            '})();\n'
+            '</script>'
+        )
 
     def _render_html(self, path: str) -> str:
         """将 HTML 文件内容内嵌渲染。"""
@@ -626,14 +645,21 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans
 a {{ color: #0366d6; text-decoration: none; }}
 a:hover {{ text-decoration: underline; }}
 img {{ max-width: 100%; height: auto; }}
-table {{ border-collapse: collapse; width: 100%; margin: 1em 0; }}
-th, td {{ border: 1px solid #ddd; padding: 8px 12px; text-align: left; }}
+table {{ border-collapse: collapse; width: 100%; margin: 1em 0; overflow-x: auto; display: block; }}
+th, td {{ border: 1px solid #ddd; padding: 8px 12px; text-align: left; white-space: nowrap; }}
 th {{ background: #f5f5f5; font-weight: 600; }}
 tr:nth-child(even) {{ background: #fafafa; }}
-pre {{ background: #f6f8fa; padding: 16px; border-radius: 6px; overflow-x: auto; }}
+pre {{ background: #f6f8fa; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 0.85em; }}
 code {{ font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9em; }}
 .unsupported {{ text-align: center; padding: 60px 20px; color: #999; }}
 .markdown-body {{ max-width: 900px; margin: 0 auto; }}
+@media (max-width: 600px) {{
+  body {{ padding: 10px 12px; font-size: 0.95em; }}
+  table {{ font-size: 0.85em; }}
+  th, td {{ padding: 4px 6px; }}
+  pre {{ padding: 10px; font-size: 0.8em; }}
+  .markdown-body {{ padding: 0; }}
+}}
 .json-viewer {{ font-family: monospace; font-size: 0.9em; }}
 .json-indent {{ margin-left: 20px; }}
 .json-key {{ color: #881391; }}
@@ -775,6 +801,13 @@ ul { list-style: none; }
 .dir-name { font-weight: 500; cursor: pointer; }
 .tree-file a { text-decoration: none; color: #0366d6; transition: color 0.15s; }
 .tree-file a:hover { color: #0250a3; text-decoration: underline; }
+@media (max-width: 600px) {
+  .container { padding: 20px 12px; }
+  .title { font-size: 1.4em; }
+  .tree-container { padding: 12px 14px; }
+  .tree-children { padding-left: 14px; }
+  .tree-file a { font-size: 0.95em; }
+}
 '''
 
     def _build_js(self) -> str:
