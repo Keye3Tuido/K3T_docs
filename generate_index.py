@@ -179,7 +179,8 @@ class DirectoryScanner:
                 )
 
         root_node = _build_node(root_path, '')
-        return FileTree(root=root_node, file_count=file_count, dir_count=dir_count)
+        # 根目录本身不计入目录数
+        return FileTree(root=root_node, file_count=file_count, dir_count=dir_count - 1)
 
     def _should_ignore(self, name: str) -> bool:
         """判断文件或目录是否应被忽略（以 '.' 开头的隐藏项）。"""
