@@ -62,7 +62,8 @@ pdfjsLib.getDocument({data:bytes}).promise.then(function(pdf){
       pdf.getPage(pageNum).then(function(page){
         var vw=container.clientWidth||document.documentElement.clientWidth-40;
         var scale=vw/page.getViewport({scale:1}).width;
-        var viewport=page.getViewport({scale:scale});
+        var dpr=window.devicePixelRatio||1;
+        var viewport=page.getViewport({scale:scale*dpr});
         var canvas=document.createElement("canvas");
         canvas.width=viewport.width;
         canvas.height=viewport.height;
