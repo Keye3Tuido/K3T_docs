@@ -71,9 +71,9 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monosp
   </div>
 </div>
 <div id="pdf-container" style="width:100%;max-width:900px;margin:0 auto;display:none;"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 var progress=document.getElementById("pdf-progress");
 var statusEl=document.getElementById("pdf-status");
 var bar=document.getElementById("pdf-bar");
@@ -113,7 +113,7 @@ requestAnimationFrame(function(){setProgress(5,"正在解码 PDF 数据...");req
       return page.render({canvasContext:canvas.getContext("2d"),viewport:viewport}).promise.then(function(){if(hint)hint.remove();});
     });
   }
-  pdfjsLib.getDocument({data:bytes}).promise.then(function(pdf){
+  pdfjsLib.getDocument({data:bytes,cMapUrl:"https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",cMapPacked:true}).promise.then(function(pdf){
     pdfDoc=pdf;totalPages=pdf.numPages;
     setProgress(25,"共 "+totalPages+" 页，正在渲染...");
     container.style.display="";
