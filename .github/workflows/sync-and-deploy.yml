@@ -1,0 +1,71 @@
+name: Sync Submodules & Deploy Pages
+on:
+  repository_dispatch:
+    types: [update-docs]
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  sync-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.K3T_DOCS_DEPLOY }}
+          submodules: false
+
+      - name: Sync docs submodule (K3T_private/docs branch)
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.K3T_DOCS_DEPLOY }}@github.com/".insteadOf "https://github.com/"
+          rm -rf docs
+          git clone --branch docs https://github.com/Keye3Tuido/K3T_private.git docs
+
+      - name: Sync icons submodule (K3T_private/icons branch)
+        run: |
+          rm -rf icons
+          git clone --branch icons https://github.com/Keye3Tuido/K3T_private.git icons
+
+      - name: Update submodule references
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs icons
+          git diff --cached --quiet || git commit -m "chore: sync submodule references"
+          git push origin main || true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate index and pages
+        run: python generate_index.py
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

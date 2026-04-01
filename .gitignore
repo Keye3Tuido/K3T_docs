@@ -15,6 +15,10 @@ __pycache__/
 # Kiro
 .kiro/
 
+# 生成的输出文件（由 workflow 生成并直接部署，不提交到仓库）
+index.html
+pages/
+
 # 私密文档子模块内容（由 .gitmodules 管理）
 # docs/
 
