@@ -4,3 +4,5 @@ Pygments
 python-docx
 openpyxl
 hypothesis
+pyyaml
+pytest

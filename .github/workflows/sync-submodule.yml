@@ -1,0 +1,62 @@
+name: Sync Submodule & Generate
+on:
+  repository_dispatch:
+    types: [update-docs]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PRIVATE_SUBMODULE_PAT }}
+          submodules: true
+
+      - name: Update submodule to latest
+        run: |
+          cd docs
+          git checkout docs
+          git pull origin docs
+          cd ..
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet docs; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "子模块已是最新"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit submodule update
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs
+          git commit -m "chore: update docs submodule reference"
+
+      - name: Setup Python
+        if: steps.check.outputs.changed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies & generate
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          pip install -r requirements.txt
+          python generate_index.py
+
+      - name: Commit generated files
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git add index.html pages/
+          git diff --cached --quiet || git commit -m "chore: regenerate docs index"
+
+      - name: Push changes
+        if: steps.check.outputs.changed == 'true'
+        run: git push origin main
