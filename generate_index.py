@@ -231,22 +231,24 @@ class ContentRenderer:
             return f'<div class="mermaid">{code}</div>'
         text = re.sub(r'```mermaid\s*\n(.*?)```', _replace_mermaid, text, flags=re.DOTALL)
 
+        # 预处理：提取数学公式并用占位符替换，防止 Markdown 破坏 LaTeX 语法 $ 公式转换为 $$ 块级公式，确保 arithmatex 能正确捕获
+        text, math_store = self._protect_math(text)
+
         # 使用 markdown + pymdown-extensions 渲染
         extensions = [
             'tables', 'fenced_code', 'codehilite', 'toc',
-            'pymdownx.superfences', 'pymdownx.arithmatex',
+            'pymdownx.superfences',
         ]
         extension_configs = {
             'codehilite': {'css_class': 'code-highlight', 'guess_lang': True},
-            'pymdownx.arithmatex': {'generic': True},
             'toc': {'permalink': False, 'slugify': lambda value, separator: re.sub(r'-+', '-', re.sub(r'[^\w\u4e00-\u9fff-]', '', value.lower().replace(' ', separator))).strip('-')},
         }
         html_content = markdown.markdown(
             text, extensions=extensions, extension_configs=extension_configs,
         )
 
-        # 将 arithmatex 输出的 LaTeX 公式转换为 MathML（纯静态，无需 JS）
-        html_content = self._convert_arithmatex_to_mathml(html_content)
+        # 恢复数学公式为 KaTeX 标签
+        html_content = self._restore_math(html_content, math_store)
 
         # 确保外部链接在新标签页打开
         html_content = re.sub(
@@ -292,6 +294,309 @@ class ContentRenderer:
             r'<span class="arithmatex">\s*\\\((.*?)\\\)\s*</span>',
             _replace_inline, html_content, flags=re.DOTALL,
         )
+
+        return html_content
+
+    @staticmethod
+    def _protect_math(text):
+        """提取 Markdown 中的数学公式，用占位符替换，防止 Markdown 处理破坏 LaTeX。
+
+        返回 (处理后的文本, 公式存储列表)。
+        """
+        math_store = []  # [(latex_str, is_display), ...]
+
+        def _make_placeholder(latex, is_display):
+            idx = len(math_store)
+            math_store.append((latex, is_display))
+            # 用 HTML 注释作为占位符，Markdown 不会处理它
+            if is_display:
+                return f'\n\n<!--MATH_BLOCK_{idx}-->\n\n'
+            return f'<!--MATH_INLINE_{idx}-->'
+
+        lines = text.split('\n')
+        result = []
+        in_code_block = False
+        in_math = False
+        math_lines = []
+        math_opener = ''
+
+        for line in lines:
+            stripped = line.strip()
+
+            # 跟踪代码块
+            if stripped.startswith('```'):
+                in_code_block = not in_code_block
+                if in_math:
+                    # 代码块开始时放弃数学收集
+                    result.append(math_opener)
+                    result.extend(math_lines)
+                    math_lines = []
+                    in_math = False
+                result.append(line)
+                continue
+
+            if in_code_block:
+                result.append(line)
+                continue
+
+            # 正在收集多行公式
+            if in_math:
+                # 检查结束标记
+                if stripped == '$' or stripped == '$$':
+                    latex = '\n'.join(math_lines)
+                    result.append(_make_placeholder(latex, True))
+                    math_lines = []
+                    in_math = False
+                    continue
+                if stripped.endswith('$') and not stripped.endswith('\\$'):
+                    # 行末有 $ 结束
+                    last_dollar = stripped.rfind('$')
+                    math_lines.append(stripped[:last_dollar])
+                    latex = '\n'.join(math_lines)
+                    result.append(_make_placeholder(latex, True))
+                    math_lines = []
+                    in_math = False
+                    continue
+                math_lines.append(line)
+                continue
+
+            # 检查 $$ 块级公式开始
+            if stripped.startswith('$$'):
+                rest_after = stripped[2:]
+                # $$ 独占一行或 $$content
+                if not rest_after or rest_after.isspace():
+                    # $$ 独占一行，开始多行块级公式
+                    in_math = True
+                    math_opener = line
+                    math_lines = []
+                    continue
+                # $$content$$ 单行块级
+                if rest_after.rstrip().endswith('$$'):
+                    latex = rest_after.rstrip()[:-2]
+                    result.append(_make_placeholder(latex, True))
+                    continue
+                # $$content... 多行块级开始
+                in_math = True
+                math_opener = line
+                math_lines = [rest_after]
+                continue
+
+            # 检查单 $ 公式
+            if '$' in stripped:
+                new_line = ContentRenderer._replace_inline_math(stripped, _make_placeholder)
+                if new_line != stripped:
+                    result.append(new_line)
+                    continue
+                # 检查是否是 $ 开头的多行公式
+                if stripped.startswith('$') and not stripped.startswith('$$'):
+                    # 检查行内是否有配对的 $
+                    rest = stripped[1:]
+                    has_close = False
+                    j = 0
+                    while j < len(rest):
+                        if rest[j] == '$' and (j == 0 or rest[j-1] != '\\'):
+                            has_close = True
+                            break
+                        j += 1
+                    if not has_close:
+                        # 多行公式开始
+                        in_math = True
+                        math_opener = line
+                        math_lines = [stripped[1:]]
+                        continue
+
+            result.append(line)
+
+        # 文件结束时还在数学模式
+        if in_math:
+            result.append(math_opener)
+            result.extend(math_lines)
+
+        return '\n'.join(result), math_store
+
+    @staticmethod
+    def _replace_inline_math(line, make_placeholder):
+        """替换行内的 $...$ 公式（单行内配对的）。"""
+        result = []
+        i = 0
+        while i < len(line):
+            if line[i] == '$' and (i == 0 or line[i-1] != '\\'):
+                # 不是 $$
+                if i + 1 < len(line) and line[i+1] == '$':
+                    result.append(line[i])
+                    i += 1
+                    continue
+                # 找配对的 $
+                j = i + 1
+                while j < len(line):
+                    if line[j] == '$' and line[j-1] != '\\':
+                        if j + 1 < len(line) and line[j+1] == '$':
+                            j += 1
+                            continue
+                        # 找到配对
+                        latex = line[i+1:j]
+                        if latex.strip():
+                            result.append(make_placeholder(latex, False))
+                        else:
+                            result.append(line[i:j+1])
+                        i = j + 1
+                        break
+                    j += 1
+                else:
+                    # 没找到配对
+                    result.append(line[i])
+                    i += 1
+            else:
+                result.append(line[i])
+                i += 1
+        return ''.join(result)
+
+    @staticmethod
+    def _restore_math(html_content, math_store):
+        """将占位符恢复为 KaTeX 标签。"""
+        def _replace_placeholder(match):
+            kind = match.group(1)  # BLOCK or INLINE
+            idx = int(match.group(2))
+            if idx >= len(math_store):
+                return match.group(0)
+            latex, is_display = math_store[idx]
+            escaped = html_module.escape(latex, quote=False)
+            if kind == 'BLOCK':
+                return f'<div class="katex-block" data-katex-display="true">{escaped}</div>'
+            return f'<span class="katex-inline" data-katex-display="false">{escaped}</span>'
+
+        html_content = re.sub(
+            r'<!--MATH_(BLOCK|INLINE)_(\d+)-->',
+            _replace_placeholder, html_content,
+        )
+        # 清理 Markdown 可能在占位符周围添加的 <p> 标签
+        html_content = re.sub(
+            r'<p>\s*(<div class="katex-block"[^>]*>.*?</div>)\s*</p>',
+            r'\1', html_content, flags=re.DOTALL,
+        )
+        return html_content
+
+    @staticmethod
+    def _normalize_math_delimiters(text: str) -> str:
+        """将跨行的单 $...$ 公式转换为 $$...$$ 块级公式。
+
+        arithmatex 的单 $ 只匹配单行行内公式，多行公式需要 $$ 包裹。
+        同时将独占一行的 $...$ 也升级为 $$...$$。
+        """
+        lines = text.split('\n')
+        result = []
+        in_code_block = False
+        in_math = False
+        math_lines = []
+
+        for line in lines:
+            stripped = line.strip()
+            # 跟踪代码块状态，不处理代码块内的内容
+            if stripped.startswith('```'):
+                in_code_block = not in_code_block
+                if in_math:
+                    # 代码块开始时如果在数学模式中，放弃收集
+                    result.extend(math_lines)
+                    math_lines = []
+                    in_math = False
+                result.append(line)
+                continue
+
+            if in_code_block:
+                result.append(line)
+                continue
+
+            if in_math:
+                math_lines.append(line)
+                # 检查是否以 $ 结尾（行末的单 $，关闭数学块）
+                if stripped.endswith('$') and not stripped.endswith('\\$'):
+                    # 将收集到的多行公式用 $$ 包裹
+                    first = math_lines[0]
+                    last = math_lines[-1]
+                    # 去掉首行开头的 $ 和末行结尾的 $
+                    math_lines[0] = first.replace('$', '$$', 1)
+                    # 末行：替换最后一个 $
+                    idx = last.rfind('$')
+                    math_lines[-1] = last[:idx] + '$$' + last[idx+1:]
+                    result.extend(math_lines)
+                    math_lines = []
+                    in_math = False
+                continue
+
+            # 检查是否是以 $ 开头的多行公式起始
+            # 条件：行首是 $（非 $$），且行末没有配对的 $
+            if stripped.startswith('$') and not stripped.startswith('$$'):
+                # 检查这行是否有配对的结束 $（排除转义的 \$）
+                rest = stripped[1:]
+                # 找非转义的 $
+                close_pos = -1
+                i = 0
+                while i < len(rest):
+                    if rest[i] == '$' and (i == 0 or rest[i-1] != '\\'):
+                        close_pos = i
+                        break
+                    i += 1
+                if close_pos == -1:
+                    # 没有配对的 $，这是多行公式的开始
+                    in_math = True
+                    math_lines = [line]
+                    continue
+
+            result.append(line)
+
+        # 如果文件结束时还在数学模式中，原样输出
+        if in_math:
+            result.extend(math_lines)
+
+        return '\n'.join(result)
+
+    @staticmethod
+    def _prepare_katex_tags(html_content: str) -> str:
+        """将 arithmatex 标签和残留的 $$/$$ 公式转换为 KaTeX 可渲染的格式。"""
+
+        # 1. 保护代码块内容，避免误匹配
+        code_blocks = []
+        def _save_code(match):
+            code_blocks.append(match.group(0))
+            return f'\x00CODEBLOCK{len(code_blocks)-1}\x00'
+        # 保护 <pre>...</pre> 和 <code>...</code> 块
+        html_content = re.sub(r'<pre[\s>].*?</pre>', _save_code, html_content, flags=re.DOTALL)
+        html_content = re.sub(r'<div class="highlight">.*?</div>', _save_code, html_content, flags=re.DOTALL)
+
+        # 2. 块级公式: <div class="arithmatex">\[...\]</div>
+        def _replace_arith_block(match):
+            latex = match.group(1).strip()
+            return f'<div class="katex-block" data-katex-display="true">{latex}</div>'
+        html_content = re.sub(
+            r'<div class="arithmatex">\s*\\\[(.*?)\\\]\s*</div>',
+            _replace_arith_block, html_content, flags=re.DOTALL,
+        )
+
+        # 3. 行内公式: <span class="arithmatex">\(...\)</span>
+        def _replace_arith_inline(match):
+            latex = match.group(1).strip()
+            return f'<span class="katex-inline" data-katex-display="false">{latex}</span>'
+        html_content = re.sub(
+            r'<span class="arithmatex">\s*\\\((.*?)\\\)\s*</span>',
+            _replace_arith_inline, html_content, flags=re.DOTALL,
+        )
+
+        # 4. 残留的 $$...$$ 块级公式（arithmatex 未捕获的）
+        def _replace_raw_block(match):
+            latex = match.group(1).strip()
+            if not latex:
+                return match.group(0)
+            return f'<div class="katex-block" data-katex-display="true">{latex}</div>'
+        html_content = re.sub(
+            r'\$\$(.*?)\$\$',
+            _replace_raw_block, html_content, flags=re.DOTALL,
+        )
+
+        # 5. 恢复代码块
+        def _restore_code(match):
+            idx = int(match.group(1))
+            return code_blocks[idx]
+        html_content = re.sub(r'\x00CODEBLOCK(\d+)\x00', _restore_code, html_content)
 
         return html_content
 
@@ -749,6 +1054,17 @@ class PageGenerator:
         extra_body = ''
         if page_type in ('.md', '.tex', '.latex'):
             extra_head += self._get_katex_head()
+            extra_body += '''<script>
+document.addEventListener("DOMContentLoaded", function() {
+  if (typeof katex === "undefined") return;
+  document.querySelectorAll(".katex-block, .katex-inline").forEach(function(el) {
+    var displayMode = el.getAttribute("data-katex-display") === "true";
+    try {
+      katex.render(el.textContent, el, {displayMode: displayMode, throwOnError: false, trust: true});
+    } catch(e) {}
+  });
+});
+</script>\n'''
         if page_type in ('.mermaid', '.md'):
             extra_body += f'<script>{self._get_mermaid_js()}</script>\n'
             extra_body += '<script>document.addEventListener("DOMContentLoaded",function(){mermaid.initialize({startOnLoad:true});});</script>\n'
@@ -822,8 +1138,14 @@ code {{ font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monos
 </html>'''
 
     def _get_katex_head(self) -> str:
-        """获取数学公式相关的 CSS 样式。"""
-        return '<style>.arithmatex { font-size: 1.1em; } .math-display { overflow-x: auto; margin: 1em 0; text-align: center; }</style>'
+        """获取 KaTeX CDN 资源。"""
+        return (
+            '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">\n'
+            '<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>\n'
+            '<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/mhchem.min.js"></script>\n'
+            '<style>.katex-block { overflow-x: auto; margin: 1em 0; text-align: center; font-size: 1.1em; }'
+            ' .katex-inline { font-size: 1.1em; }</style>\n'
+        )
 
     def _get_mermaid_js(self) -> str:
         """获取 Mermaid.js 脚本。"""
