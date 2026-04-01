@@ -373,14 +373,16 @@ class ContentRenderer:
             return match.group(0)
         content = re.sub(r'(src=|href=)"([^"]+)"', _inline_resource, content)
         escaped = content.replace('&', '&amp;').replace('"', '&quot;')
-        return (f'<div class="html-viewer">'
+        return (f'<div class="html-viewer" style="position:relative;">'
+                f'<div id="html-loading" style="text-align:center;color:#888;padding:20px;">加载 HTML 内容中...</div>'
                 f'<iframe srcdoc="{escaped}" '
                 f'width="100%" height="800px" style="border:none;" '
-                f'sandbox="allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation"></iframe>'
+                f'sandbox="allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation" '
+                f'onload="document.getElementById(\'html-loading\').remove();"></iframe>'
                 f'</div>')
 
     def _render_image(self, path: str) -> str:
-        """将图片转换为 base64 data URI。"""
+        """将图片转换为 base64 data URI，带加载占位。"""
         mime, _ = mimetypes.guess_type(path)
         if not mime:
             ext = os.path.splitext(path)[1].lower()
@@ -388,11 +390,15 @@ class ContentRenderer:
                         '.gif': 'image/gif', '.svg': 'image/svg+xml', '.bmp': 'image/bmp',
                         '.webp': 'image/webp'}
             mime = mime_map.get(ext, 'image/png')
+        fsize = os.path.getsize(path)
+        size_str = f'{fsize/1024:.0f} KB' if fsize < 1024*1024 else f'{fsize/1024/1024:.1f} MB'
         with open(path, 'rb') as f:
             b64 = base64.b64encode(f.read()).decode('ascii')
         return (f'<div class="image-viewer" style="text-align:center;">'
+                f'<div id="img-loading" style="color:#888;padding:20px;">加载图片中 ({size_str})...</div>'
                 f'<img src="data:{mime};base64,{b64}" '
-                f'style="max-width:100%;height:auto;" alt="image" />'
+                f'style="max-width:100%;height:auto;display:none;" alt="image" '
+                f'onload="this.style.display=\'block\';document.getElementById(\'img-loading\').remove();" />'
                 f'</div>')
 
     def _render_docx(self, path: str) -> str:
@@ -481,7 +487,10 @@ class ContentRenderer:
                 except Exception:
                     pass
 
-        return f'<div class="docx-content">{"".join(parts)}</div>'
+        return (f'<div class="docx-content">'
+                f'<div style="color:#888;font-size:0.85em;margin-bottom:12px;">'
+                f'共 {len(doc.paragraphs)} 个段落，{len(doc.tables)} 个表格</div>'
+                f'{"".join(parts)}</div>')
 
     def _render_xlsx(self, path: str) -> str:
         """将 XLSX 电子表格转换为 HTML 表格。"""
@@ -510,9 +519,12 @@ class ContentRenderer:
         for i, name in enumerate(sheets):
             ws = wb[name]
             display = 'block' if i == 0 else 'none'
+            row_count = 0
             parts.append(f'<div id="sheet-{i}" class="xlsx-sheet" style="display:{display};">')
+            parts.append('<div style="overflow-x:auto;">')
             parts.append('<table class="xlsx-table">')
             for row_idx, row in enumerate(ws.iter_rows(values_only=True)):
+                row_count += 1
                 parts.append('<tr>')
                 for cell in row:
                     tag = 'th' if row_idx == 0 else 'td'
@@ -520,6 +532,8 @@ class ContentRenderer:
                     parts.append(f'<{tag}>{val}</{tag}>')
                 parts.append('</tr>')
             parts.append('</table></div>')
+            parts.append(f'<div style="color:#888;font-size:0.8em;margin-top:4px;">{row_count} 行</div>')
+            parts.append('</div>')
 
         wb.close()
         return '\n'.join(parts)
@@ -542,7 +556,7 @@ class ContentRenderer:
         if not rows:
             return '<p>空的 CSV 文件</p>'
 
-        html_parts = ['<table class="csv-table">']
+        html_parts = ['<div style="overflow-x:auto;">', '<table class="csv-table">']
         for i, row in enumerate(rows):
             if i == 0:
                 html_parts.append('<thead><tr>')
@@ -555,7 +569,8 @@ class ContentRenderer:
                 for cell in row:
                     html_parts.append(f'<td>{html_module.escape(cell)}</td>')
                 html_parts.append('</tr>')
-        html_parts.append('</tbody></table>')
+        html_parts.append('</tbody></table></div>')
+        html_parts.append(f'<div style="color:#888;font-size:0.8em;margin-top:4px;">{len(rows)} 行 × {len(rows[0]) if rows else 0} 列</div>')
         return '\n'.join(html_parts)
 
     def _render_json(self, path: str) -> str:
@@ -609,10 +624,18 @@ class ContentRenderer:
         return f'<div class="json-viewer">{tree_html}</div>'
 
     def _render_mermaid(self, path: str) -> str:
-        """将 Mermaid 语法内嵌到页面。"""
+        """将 Mermaid 语法内嵌到页面，带渲染状态提示。"""
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
-        return f'<div class="mermaid">{html_module.escape(content)}</div>'
+        escaped = html_module.escape(content)
+        return (f'<div id="mermaid-loading" style="text-align:center;color:#888;padding:20px;">正在渲染 Mermaid 图表...</div>'
+                f'<div class="mermaid" style="display:none;" '
+                f'onrender="this.style.display=\'block\';document.getElementById(\'mermaid-loading\').remove();">'
+                f'{escaped}</div>'
+                f'<script>document.addEventListener("DOMContentLoaded",function(){{'
+                f'setTimeout(function(){{document.querySelector(".mermaid").style.display="block";'
+                f'var l=document.getElementById("mermaid-loading");if(l)l.remove();}},2000);'
+                f'}});</script>')
 
     def _render_latex(self, path: str) -> str:
         """使用 KaTeX 渲染 LaTeX 源码。"""
@@ -642,13 +665,21 @@ class ContentRenderer:
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
 
+        line_count = content.count('\n') + (1 if content and not content.endswith('\n') else 0)
+        fsize = os.path.getsize(path)
+        size_str = f'{fsize/1024:.1f} KB' if fsize >= 1024 else f'{fsize} B'
+
         try:
             lexer = get_lexer_for_filename(path)
+            lang = lexer.name
         except Exception:
             lexer = TextLexer()
+            lang = 'Text'
 
         formatter = HtmlFormatter(linenos=True, cssclass='code-highlight')
-        return highlight(content, lexer, formatter)
+        code_html = highlight(content, lexer, formatter)
+        info = f'<div style="color:#888;font-size:0.8em;margin-bottom:8px;">{lang} · {line_count} 行 · {size_str}</div>'
+        return info + code_html
 
     def _render_plaintext(self, path: str) -> str:
         """以纯文本形式渲染文件内容。"""
