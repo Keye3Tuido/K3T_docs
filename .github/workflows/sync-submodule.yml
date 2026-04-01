@@ -11,7 +11,7 @@ jobs:
       - name: Checkout with submodules
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PRIVATE_SUBMODULE_PAT }}
+          token: ${{ secrets.K3T_DOCS_DEPLOY }}
           submodules: true
 
       - name: Update submodule to latest
