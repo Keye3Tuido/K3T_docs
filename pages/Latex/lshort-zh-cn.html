@@ -57,7 +57,7 @@ for(var i=0;i<len;i++)bytes[i]=bin.charCodeAt(i);
 var container=document.getElementById("pdf-container");
 var loading=document.getElementById("pdf-loading");
 var pdfDoc=null,rendered={};
-var RENDER_SCALE=3;
+var RENDER_SCALE=Math.max(3,window.devicePixelRatio||1);
 
 function renderPage(num){
   if(rendered[num])return;
@@ -84,6 +84,7 @@ pdfjsLib.getDocument({data:bytes}).promise.then(function(pdf){
     canvas.style.height="auto";
     canvas.style.display="block";
     canvas.style.marginBottom="2px";
+    canvas.style.imageRendering="high-quality";
     container.appendChild(canvas);
   }
   renderPage(1);
