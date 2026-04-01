@@ -57,7 +57,8 @@ for(var i=0;i<len;i++)bytes[i]=bin.charCodeAt(i);
 var container=document.getElementById("pdf-container");
 var loading=document.getElementById("pdf-loading");
 var pdfDoc=null,rendered={};
-var RENDER_SCALE=Math.max(3,window.devicePixelRatio||1);
+var dpr=window.devicePixelRatio||1;
+var RENDER_SCALE=dpr<2?2:Math.min(dpr,3);
 
 function renderPage(num){
   if(rendered[num])return;
