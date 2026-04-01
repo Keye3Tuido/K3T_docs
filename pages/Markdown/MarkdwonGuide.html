@@ -41,9 +41,16 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monosp
 .docx-table th { background: #f0f0f0; }
 .katex-render { font-size: 1.2em; line-height: 2; }
 .mermaid { text-align: center; margin: 20px 0; }
+#page-loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff;
+  display: flex; align-items: center; justify-content: center; z-index: 9999;
+  flex-direction: column; color: #888; font-size: 0.95em; }
+#page-loading .bar-wrap { width: 60%; max-width: 300px; height: 4px; background: #eee;
+  border-radius: 2px; margin-top: 12px; overflow: hidden; }
+#page-loading .bar { width: 30%; height: 100%; background: #4a90d9; border-radius: 2px;
+  animation: loading-slide 1.2s ease-in-out infinite; }
+@keyframes loading-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
 </style>
-<style>.katex-render { font-size: 1.2em; } .arithmatex { font-size: 1.1em; }</style>
-<style>pre { line-height: 125%; }
+<style>.arithmatex { font-size: 1.1em; } .math-display { overflow-x: auto; margin: 1em 0; text-align: center; }</style><style>pre { line-height: 125%; }
 td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
 span.linenos { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
 td.linenos .special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
@@ -120,6 +127,7 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
 
 </head>
 <body oncontextmenu="return false;">
+<div id="page-loading"><span>加载中...</span><div class="bar-wrap"><div class="bar"></div></div></div>
 <div class="markdown-body"><h1 id="markdown-原生语法指南">Markdown 原生语法指南</h1>
 <h2 id="一标题-headings">一、标题 (Headings)</h2>
 <div class="highlight"><pre><span></span><code><span class="gh"># H1 标题</span>
@@ -424,7 +432,7 @@ int main(){
 <div class="highlight"><pre><span></span><code>质能方程$E=\frac{mc^2}{\sqrt{1-\frac{v^2}{c^2}}}$考虑了相对论效应
 </code></pre></div>
 <p>效果：<br />
-质能方程<span class="arithmatex">\(E=\frac{mc^2}{\sqrt{1-\frac{v^2}{c^2}}}\)</span>考虑了相对论效应</p>
+质能方程<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>E</mi><mo>&#x0003D;</mo><mfrac><mrow><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></mrow><mrow><msqrt><mrow><mn>1</mn><mo>&#x02212;</mo><mfrac><mrow><msup><mi>v</mi><mn>2</mn></msup></mrow><mrow><msup><mi>c</mi><mn>2</mn></msup></mrow></mfrac></mrow></msqrt></mrow></mfrac></mrow></math>考虑了相对论效应</p>
 <h3 id="行间公式">行间公式</h3>
 <div class="highlight"><pre><span></span><code>$$
 &lt;!-- latex --&gt;
@@ -2480,5 +2488,6 @@ Expecting `+Ze.join(", ")+", got '"+(this.terminals_[Pe]||Pe)+"'":At="Parse erro
 </script>
 <script>document.addEventListener("DOMContentLoaded",function(){mermaid.initialize({startOnLoad:true});});</script>
 
+<script>document.getElementById("page-loading").remove();</script>
 </body>
 </html>

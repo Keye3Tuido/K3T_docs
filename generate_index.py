@@ -245,6 +245,9 @@ class ContentRenderer:
             text, extensions=extensions, extension_configs=extension_configs,
         )
 
+        # 将 arithmatex 输出的 LaTeX 公式转换为 MathML（纯静态，无需 JS）
+        html_content = self._convert_arithmatex_to_mathml(html_content)
+
         # 确保外部链接在新标签页打开
         html_content = re.sub(
             r'<a\s+href="(https?://[^"]+)"',
@@ -253,6 +256,44 @@ class ContentRenderer:
         )
 
         return f'<div class="markdown-body">{html_content}</div>'
+
+    @staticmethod
+    def _convert_arithmatex_to_mathml(html_content: str) -> str:
+        """将 arithmatex 生成的 LaTeX 分隔符转换为 MathML，实现纯静态渲染。"""
+        import latex2mathml.converter
+
+        def _latex_to_mathml(latex_str: str, display: bool = False) -> str:
+            try:
+                mathml = latex2mathml.converter.convert(latex_str)
+                if display:
+                    mathml = mathml.replace('<math', '<math display="block"', 1)
+                return mathml
+            except Exception:
+                # 转换失败时保留原始 LaTeX 文本
+                escaped = html_module.escape(latex_str)
+                if display:
+                    return f'<div class="math-display"><code>{escaped}</code></div>'
+                return f'<code>{escaped}</code>'
+
+        # 块级公式: <div class="arithmatex">\[...\]</div>
+        def _replace_block(match):
+            latex = match.group(1).strip()
+            return _latex_to_mathml(latex, display=True)
+        html_content = re.sub(
+            r'<div class="arithmatex">\s*\\\[(.*?)\\\]\s*</div>',
+            _replace_block, html_content, flags=re.DOTALL,
+        )
+
+        # 行内公式: <span class="arithmatex">\(...\)</span>
+        def _replace_inline(match):
+            latex = match.group(1).strip()
+            return _latex_to_mathml(latex, display=False)
+        html_content = re.sub(
+            r'<span class="arithmatex">\s*\\\((.*?)\\\)\s*</span>',
+            _replace_inline, html_content, flags=re.DOTALL,
+        )
+
+        return html_content
 
     def _render_pdf(self, path: str) -> str:
         """将 PDF 渲染为 canvas，base64 存在隐藏 textarea 中避免 JS 阻塞。"""
@@ -638,21 +679,21 @@ class ContentRenderer:
                 f'}});</script>')
 
     def _render_latex(self, path: str) -> str:
-        """使用 KaTeX 渲染 LaTeX 源码。"""
+        """将 LaTeX 源码渲染为 MathML。"""
+        import latex2mathml.converter
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
         escaped_code = html_module.escape(content)
-        # 提取数学公式（$...$, $$...$$, \(...\), \[...\]）并包装为 KaTeX 可渲染的元素
-        # 同时展示源码和渲染结果
         parts = []
         parts.append('<div class="latex-content">')
         parts.append('<h3>源码</h3>')
         parts.append(f'<pre><code class="language-latex">{escaped_code}</code></pre>')
         parts.append('<h3>渲染结果</h3>')
-        # 将整个内容作为 KaTeX 渲染区域
-        # 用 \( \) 包裹行内公式，\[ \] 包裹块级公式
-        # 简单处理：将整个文件内容视为数学环境
-        parts.append(f'<div class="katex-render">{escaped_code}</div>')
+        try:
+            mathml = latex2mathml.converter.convert(content)
+            parts.append(f'<div class="math-display">{mathml}</div>')
+        except Exception:
+            parts.append(f'<div class="katex-render">{escaped_code}</div>')
         parts.append('</div>')
         return '\n'.join(parts)
 
@@ -707,7 +748,7 @@ class PageGenerator:
         extra_head = ''
         extra_body = ''
         if page_type in ('.md', '.tex', '.latex'):
-            extra_head += f'<style>{self._get_katex_css()}</style>\n'
+            extra_head += self._get_katex_head()
         if page_type in ('.mermaid', '.md'):
             extra_body += f'<script>{self._get_mermaid_js()}</script>\n'
             extra_body += '<script>document.addEventListener("DOMContentLoaded",function(){mermaid.initialize({startOnLoad:true});});</script>\n'
@@ -762,17 +803,27 @@ code {{ font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monos
 .docx-table th {{ background: #f0f0f0; }}
 .katex-render {{ font-size: 1.2em; line-height: 2; }}
 .mermaid {{ text-align: center; margin: 20px 0; }}
+#page-loading {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff;
+  display: flex; align-items: center; justify-content: center; z-index: 9999;
+  flex-direction: column; color: #888; font-size: 0.95em; }}
+#page-loading .bar-wrap {{ width: 60%; max-width: 300px; height: 4px; background: #eee;
+  border-radius: 2px; margin-top: 12px; overflow: hidden; }}
+#page-loading .bar {{ width: 30%; height: 100%; background: #4a90d9; border-radius: 2px;
+  animation: loading-slide 1.2s ease-in-out infinite; }}
+@keyframes loading-slide {{ 0% {{ transform: translateX(-100%); }} 100% {{ transform: translateX(400%); }} }}
 </style>
 {extra_head}
 </head>
 <body oncontextmenu="return false;">
+<div id="page-loading"><span>加载中...</span><div class="bar-wrap"><div class="bar"></div></div></div>
 {body}
+<script>document.getElementById("page-loading").remove();</script>
 </body>
 </html>'''
 
-    def _get_katex_css(self) -> str:
-        """获取 KaTeX CSS 样式（最小化内嵌版本）。"""
-        return '.katex-render { font-size: 1.2em; } .arithmatex { font-size: 1.1em; }'
+    def _get_katex_head(self) -> str:
+        """获取数学公式相关的 CSS 样式。"""
+        return '<style>.arithmatex { font-size: 1.1em; } .math-display { overflow-x: auto; margin: 1em 0; text-align: center; }</style>'
 
     def _get_mermaid_js(self) -> str:
         """获取 Mermaid.js 脚本。"""
@@ -933,13 +984,16 @@ class IndexBuilder:
         index_gen = IndexGenerator()
 
         # 1. 扫描
+        print("📂 扫描文档目录...")
         file_tree = scanner.scan(docs_dir)
+        print(f"   找到 {file_tree.file_count} 个文件，{file_tree.dir_count} 个目录")
 
         # 2. 清空 pages/
         pages_dir = os.path.join(output_dir, 'pages')
         self._clean_pages_dir(pages_dir)
 
         # 3. 渲染并生成 Document_Page
+        print("📝 渲染页面...")
         stats = BuildStats(
             total_files=file_tree.file_count,
             total_dirs=file_tree.dir_count,
@@ -957,9 +1011,12 @@ class IndexBuilder:
                 os.path.getsize(abs_path)
             except OSError:
                 stats.errors.append(f"无法访问: {node.path}")
+                print(f"  ✗ {node.path} (无法访问)")
                 return
 
             try:
+                processed = stats.total_pages + len(stats.errors) + 1
+                print(f"  [{processed}/{file_tree.file_count}] 渲染 {node.path} ...", end='', flush=True)
                 body_html = renderer.render(abs_path, node.extension)
                 full_html = page_gen.generate_page(node.display_name, body_html, node.extension)
                 # page_path 去掉 'pages/' 前缀得到相对于 pages/ 的路径
@@ -969,15 +1026,19 @@ class IndexBuilder:
                 pages[rel_page] = full_html
                 stats.total_pages += 1
                 stats.file_type_counts[node.extension] = stats.file_type_counts.get(node.extension, 0) + 1
+                print(f" ✓")
             except Exception as e:
                 stats.errors.append(f"渲染失败 {node.path}: {str(e)}")
+                print(f" ✗ ({e})")
 
         _process_node(file_tree.root)
 
         # 4. 生成 index.html
+        print("📋 生成 index.html...")
         index_html = index_gen.generate_index(file_tree)
 
         # 5. 写入文件
+        print("💾 写入文件...")
         index_path = os.path.join(output_dir, 'index.html')
         self._write_index(index_html, index_path)
         stats.index_size_bytes = len(index_html.encode('utf-8'))

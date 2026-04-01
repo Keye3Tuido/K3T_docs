@@ -3,6 +3,9 @@ pymdown-extensions
 Pygments
 python-docx
 openpyxl
-hypothesis
 pyyaml
+latex2mathml
+
+# dev / test
+hypothesis
 pytest

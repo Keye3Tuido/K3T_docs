@@ -41,10 +41,19 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monosp
 .docx-table th { background: #f0f0f0; }
 .katex-render { font-size: 1.2em; line-height: 2; }
 .mermaid { text-align: center; margin: 20px 0; }
+#page-loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff;
+  display: flex; align-items: center; justify-content: center; z-index: 9999;
+  flex-direction: column; color: #888; font-size: 0.95em; }
+#page-loading .bar-wrap { width: 60%; max-width: 300px; height: 4px; background: #eee;
+  border-radius: 2px; margin-top: 12px; overflow: hidden; }
+#page-loading .bar { width: 30%; height: 100%; background: #4a90d9; border-radius: 2px;
+  animation: loading-slide 1.2s ease-in-out infinite; }
+@keyframes loading-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
 </style>
 
 </head>
 <body oncontextmenu="return false;">
+<div id="page-loading"><span>加载中...</span><div class="bar-wrap"><div class="bar"></div></div></div>
 <div class="html-viewer" style="position:relative;"><div id="html-loading" style="text-align:center;color:#888;padding:20px;">加载 HTML 内容中...</div><iframe srcdoc="<!DOCTYPE html>
 <html lang=&quot;zh-CN&quot;>
 <head>
@@ -277,5 +286,6 @@ flowchart TB
 </body>
 </html>
 " width="100%" height="800px" style="border:none;" sandbox="allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation" onload="document.getElementById('html-loading').remove();"></iframe></div>
+<script>document.getElementById("page-loading").remove();</script>
 </body>
 </html>

@@ -41,9 +41,16 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monosp
 .docx-table th { background: #f0f0f0; }
 .katex-render { font-size: 1.2em; line-height: 2; }
 .mermaid { text-align: center; margin: 20px 0; }
+#page-loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff;
+  display: flex; align-items: center; justify-content: center; z-index: 9999;
+  flex-direction: column; color: #888; font-size: 0.95em; }
+#page-loading .bar-wrap { width: 60%; max-width: 300px; height: 4px; background: #eee;
+  border-radius: 2px; margin-top: 12px; overflow: hidden; }
+#page-loading .bar { width: 30%; height: 100%; background: #4a90d9; border-radius: 2px;
+  animation: loading-slide 1.2s ease-in-out infinite; }
+@keyframes loading-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
 </style>
-<style>.katex-render { font-size: 1.2em; } .arithmatex { font-size: 1.1em; }</style>
-<style>pre { line-height: 125%; }
+<style>.arithmatex { font-size: 1.1em; } .math-display { overflow-x: auto; margin: 1em 0; text-align: center; }</style><style>pre { line-height: 125%; }
 td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
 span.linenos { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
 td.linenos .special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
@@ -120,17 +127,18 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
 
 </head>
 <body oncontextmenu="return false;">
+<div id="page-loading"><span>加载中...</span><div class="bar-wrap"><div class="bar"></div></div></div>
 <div class="markdown-body"><h1 id="markdown-中的-latex-数学公式指南">Markdown 中的 LaTeX 数学公式指南</h1>
 <h2 id="1-基本语法结构">1. 基本语法结构</h2>
 <h3 id="11-行内公式">1.1 行内公式</h3>
 <p><div class="highlight"><pre><span></span><code><span class="s">$</span><span class="nb">公式内容</span><span class="s">$</span>  例如：<span class="s">$</span><span class="nb">E </span><span class="o">=</span><span class="nb"> mc^</span><span class="m">2</span><span class="s">$</span>
 </code></pre></div>
-<span class="arithmatex">\(E = mc^2\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>E</mi><mo>&#x0003D;</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></mrow></math></p>
 <h3 id="12-块级公式">1.2 块级公式</h3>
 <p><div class="highlight"><pre><span></span><code><span class="sb">$$</span><span class="nb">公式内容</span><span class="s">$$</span>  例如：
 <span class="sb">$$</span><span class="nv">\sum</span><span class="nb">_{i</span><span class="o">=</span><span class="m">1</span><span class="nb">}^n i </span><span class="o">=</span><span class="nb"> </span><span class="nv">\frac</span><span class="nb">{n</span><span class="o">(</span><span class="nb">n</span><span class="o">+</span><span class="m">1</span><span class="o">)</span><span class="nb">}{</span><span class="m">2</span><span class="nb">}</span><span class="s">$$</span>
 </code></pre></div>
-$<span class="arithmatex">\(\sum_{i=1}^n i = \frac{n(n+1)}{2}\)</span>$</p>
+$<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msubsup><mo>&#x02211;</mo><mrow><mi>i</mi><mo>&#x0003D;</mo><mn>1</mn></mrow><mi>n</mi></msubsup><mi>i</mi><mo>&#x0003D;</mo><mfrac><mrow><mi>n</mi><mo stretchy="false">&#x00028;</mo><mi>n</mi><mo>&#x0002B;</mo><mn>1</mn><mo stretchy="false">&#x00029;</mo></mrow><mrow><mn>2</mn></mrow></mfrac></mrow></math>$</p>
 <h3 id="13-环境语法">1.3 环境语法</h3>
 <div class="highlight"><pre><span></span><code><span class="k">\begin</span><span class="nb">{</span>环境名<span class="nb">}</span>
 内容
@@ -243,30 +251,29 @@ $<span class="arithmatex">\(\sum_{i=1}^n i = \frac{n(n+1)}{2}\)</span>$</p>
 <h3 id="31-基本运算">3.1 基本运算</h3>
 <p><div class="highlight"><pre><span></span><code>+ - <span class="k">\times</span> <span class="k">\div</span> <span class="k">\cdot</span> <span class="k">\pm</span> <span class="k">\mp</span>
 </code></pre></div>
-<span class="arithmatex">\(+ - \times \div \cdot \pm \mp\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo>&#x0002B;</mo><mo>&#x02212;</mo><mo>&#x000D7;</mo><mo>&#x000F7;</mo><mo>&#x000B7;</mo><mi>&#x000B1;</mi><mo>&#x02213;</mo></mrow></math></p>
 <h3 id="32-关系运算符">3.2 关系运算符</h3>
 <p><div class="highlight"><pre><span></span><code>= <span class="k">\neq</span> &lt; &gt; <span class="k">\leq</span> <span class="k">\geq</span> <span class="k">\approx</span> <span class="k">\equiv</span> <span class="k">\propto</span>
 </code></pre></div>
-<span class="arithmatex">\(= \neq &lt; &gt; \leq \geq \approx \equiv \propto\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo>&#x0003D;</mo><mo>&#x02260;</mo><mi>&</mi><mi>l</mi><mi>t</mi><mi>;</mi><mi>&</mi><mi>g</mi><mi>t</mi><mi>;</mi><mo>&#x02264;</mo><mo>&#x02265;</mo><mo>&#x02248;</mo><mo>&#x02261;</mo><mo>&#x0221D;</mo></mrow></math></p>
 <h3 id="33-集合运算符">3.3 集合运算符</h3>
 <p><div class="highlight"><pre><span></span><code><span class="k">\in</span> <span class="k">\notin</span> <span class="k">\subset</span> <span class="k">\subseteq</span> <span class="k">\supset</span> <span class="k">\supseteq</span> <span class="k">\cup</span> <span class="k">\cap</span> <span class="k">\emptyset</span>
 </code></pre></div>
-<span class="arithmatex">\(\in \notin \subset \subseteq \supset \supseteq \cup \cap \emptyset\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo>&#x02208;</mo><mo>&#x02209;</mo><mo>&#x02282;</mo><mo>&#x02286;</mo><mo>&#x02283;</mo><mo>&#x02287;</mo><mo>&#x0222A;</mo><mo>&#x02229;</mo><mo>&#x02205;</mo></mrow></math></p>
 <h3 id="34-微积分">3.4 微积分</h3>
 <p><div class="highlight"><pre><span></span><code><span class="k">\frac</span><span class="nb">{</span>dy<span class="nb">}{</span>dx<span class="nb">}</span> <span class="k">\int_a</span><span class="nb">^</span>b f(x)dx <span class="k">\iint</span> <span class="k">\oint</span> <span class="k">\lim_</span><span class="nb">{</span>x <span class="k">\to</span> <span class="k">\infty</span><span class="nb">}</span>
 <span class="k">\partial</span> <span class="k">\nabla</span> <span class="k">\sum</span> <span class="k">\prod</span>
 </code></pre></div>
-<span class="arithmatex">\(\frac{dy}{dx} \int_a^b f(x)dx \iint \oint \lim_{x \to \infty}
-\partial \nabla \sum \prod\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mfrac><mrow><mi>d</mi><mi>y</mi></mrow><mrow><mi>d</mi><mi>x</mi></mrow></mfrac><msubsup><mo>&#x0222B;</mo><mi>a</mi><mi>b</mi></msubsup><mi>f</mi><mo stretchy="false">&#x00028;</mo><mi>x</mi><mo stretchy="false">&#x00029;</mo><mi>d</mi><mi>x</mi><mo>&#x0222C;</mo><mo>&#x0222E;</mo><msub><mo>lim</mo><mrow><mi>x</mi><mo>&#x02192;</mo><mo>&#x0221E;</mo></mrow></msub><mo>&#x02202;</mo><mo>&#x02207;</mo><mo>&#x02211;</mo><mo>&#x0220F;</mo></mrow></math></p>
 <h3 id="35-逻辑运算符">3.5 逻辑运算符</h3>
 <p><div class="highlight"><pre><span></span><code><span class="k">\forall</span> <span class="k">\exists</span> <span class="k">\neg</span> <span class="k">\land</span> <span class="k">\lor</span> <span class="k">\rightarrow</span> <span class="k">\Rightarrow</span> <span class="k">\Leftrightarrow</span>
 </code></pre></div>
-<span class="arithmatex">\(\forall \exists \neg \land \lor \rightarrow \Rightarrow \Leftrightarrow\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo>&#x02200;</mo><mo>&#x02203;</mo><mi>&#x000AC;</mi><mo>&#x02227;</mo><mo>&#x02228;</mo><mo>&#x02192;</mo><mo>&#x021D2;</mo><mo>&#x021D4;</mo></mrow></math></p>
 <h2 id="4-上下标与括号">4. 上下标与括号</h2>
 <h3 id="41-上下标">4.1 上下标</h3>
 <p><div class="highlight"><pre><span></span><code>x<span class="nb">^</span>2   x<span class="nb">^{</span>a+b<span class="nb">}</span>   x<span class="nb">_</span>i   x<span class="nb">_{</span>ij<span class="nb">}</span>   <span class="k">\max_</span><span class="nb">{</span>x <span class="k">\in</span> S<span class="nb">}</span>
 </code></pre></div>
-<span class="arithmatex">\(x^2   x^{a+b}   x_i   x_{ij}   \max_{x \in S}\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mi>x</mi><mn>2</mn></msup><msup><mi>x</mi><mrow><mi>a</mi><mo>&#x0002B;</mo><mi>b</mi></mrow></msup><msub><mi>x</mi><mi>i</mi></msub><msub><mi>x</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><msub><mo>max</mo><mrow><mi>x</mi><mo>&#x02208;</mo><mi>S</mi></mrow></msub></mrow></math></p>
 <h3 id="42-括号与定界符">4.2 括号与定界符</h3>
 <div class="highlight"><pre><span></span><code>( ) [ ] <span class="k">\{</span> <span class="k">\}</span> <span class="k">\langle</span> <span class="k">\rangle</span> | <span class="k">\|</span> <span class="k">\lceil</span> <span class="k">\rceil</span> <span class="k">\lfloor</span> <span class="k">\rfloor</span>
 </code></pre></div>
@@ -312,23 +319,21 @@ $$</p>
 <p><div class="highlight"><pre><span></span><code><span class="k">\rightarrow</span> <span class="k">\Rightarrow</span> <span class="k">\leftarrow</span> <span class="k">\Leftarrow</span> <span class="k">\leftrightarrow</span> <span class="k">\Leftrightarrow</span>
 <span class="k">\mapsto</span> <span class="k">\to</span> <span class="k">\hookrightarrow</span> <span class="k">\nearrow</span> <span class="k">\searrow</span>
 </code></pre></div>
-<span class="arithmatex">\(\rightarrow \Rightarrow \leftarrow \Leftarrow \leftrightarrow \Leftrightarrow
-\mapsto \to \hookrightarrow \nearrow \searrow\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo>&#x02192;</mo><mo>&#x021D2;</mo><mo>&#x02190;</mo><mo>&#x021D0;</mo><mo>&#x02194;</mo><mo>&#x021D4;</mo><mo>&#x021A6;</mo><mo>&#x02192;</mo><mo>&#x021AA;</mo><mo>&#x02197;</mo><mo>&#x02198;</mo></mrow></math></p>
 <h3 id="62-几何符号">6.2 几何符号</h3>
 <p><div class="highlight"><pre><span></span><code><span class="k">\angle</span> <span class="k">\triangle</span> <span class="k">\square</span> <span class="k">\cong</span> <span class="k">\sim</span> <span class="k">\parallel</span> <span class="k">\perp</span>
 </code></pre></div>
-<span class="arithmatex">\(\angle \triangle \square \cong \sim \parallel \perp\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo>&#x02220;</mo><mi>&#x025B3;</mi><mi>&#x025FB;</mi><mo>&#x02245;</mo><mi>&#x0007E;</mi><mo>&#x02225;</mo><mi>&#x027C2;</mi></mrow></math></p>
 <h3 id="63-其他符号">6.3 其他符号</h3>
 <p><div class="highlight"><pre><span></span><code><span class="k">\infty</span> <span class="k">\aleph</span> <span class="k">\hbar</span> <span class="k">\ell</span> <span class="k">\wp</span> <span class="k">\Re</span> <span class="k">\Im</span> <span class="k">\prime</span> <span class="k">\emptyset</span> <span class="k">\nabla</span> <span class="k">\partial</span>
 </code></pre></div>
-<span class="arithmatex">\(\infty \aleph \hbar \ell \wp \Re \Im \prime \emptyset \nabla \partial\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo>&#x0221E;</mo><mi>&#x02135;</mi><mi>&#x0210F;</mi><mi>&#x02113;</mi><mi>&#x02118;</mi><mi>&#x0211C;</mi><mi>&#x02111;</mi><mi>&#x02032;</mi><mo>&#x02205;</mo><mo>&#x02207;</mo><mo>&#x02202;</mo></mrow></math></p>
 <h2 id="7-格式与间距">7. 格式与间距</h2>
 <h3 id="71-文本格式">7.1 文本格式</h3>
 <p><div class="highlight"><pre><span></span><code><span class="k">\text</span><span class="nb">{</span>普通文本<span class="nb">}</span> <span class="k">\textrm</span><span class="nb">{</span>罗马体<span class="nb">}</span> <span class="k">\textit</span><span class="nb">{</span>斜体<span class="nb">}</span> <span class="k">\mathbf</span><span class="nb">{</span>粗体<span class="nb">}</span> <span class="k">\mathsf</span><span class="nb">{</span>等线体<span class="nb">}</span>
 <span class="k">\mathbb</span><span class="nb">{</span>黑板粗体<span class="nb">}</span> <span class="k">\mathcal</span><span class="nb">{</span>手写体<span class="nb">}</span>
 </code></pre></div>
-<span class="arithmatex">\(\text{普通文本} \textrm{罗马体} \textit{斜体} \mathbf{粗体} \mathsf{等线体}
-\mathbb{黑板粗体} \mathcal{手写体}\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mtext>普通文本</mtext><mtext>罗马体</mtext><mtext mathvariant="italic">斜体</mtext><mrow><mi mathvariant="bold">粗</mi><mi mathvariant="bold">体</mi></mrow><mrow><mi mathvariant="sans-serif">等</mi><mi mathvariant="sans-serif">线</mi><mi mathvariant="sans-serif">体</mi></mrow><mrow><mi mathvariant="double-struck">黑</mi><mi mathvariant="double-struck">板</mi><mi mathvariant="double-struck">粗</mi><mi mathvariant="double-struck">体</mi></mrow><mrow><mi mathvariant="script">手</mi><mi mathvariant="script">写</mi><mi mathvariant="script">体</mi></mrow></mrow></math></p>
 <h3 id="72-空格与间距">7.2 空格与间距</h3>
 <div class="highlight"><pre><span></span><code><span class="k">\,</span>   <span class="k">\:</span>   <span class="k">\;</span>   <span class="k">\quad</span>   <span class="k">\qquad</span>   <span class="k">\!</span>   <span class="k">\hspace</span><span class="nb">{</span>1cm<span class="nb">}</span>   <span class="k">\vspace</span><span class="nb">{</span>5mm<span class="nb">}</span>
 </code></pre></div>
@@ -365,7 +370,7 @@ $$</p>
 <h3 id="101-行内示例">10.1 行内示例</h3>
 <p><div class="highlight"><pre><span></span><code>勾股定理：<span class="s">$</span><span class="nb">a^</span><span class="m">2</span><span class="nb"> </span><span class="o">+</span><span class="nb"> b^</span><span class="m">2</span><span class="nb"> </span><span class="o">=</span><span class="nb"> c^</span><span class="m">2</span><span class="s">$</span>
 </code></pre></div>
-<span class="arithmatex">\(a^2 + b^2 = c^2\)</span></p>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mi>a</mi><mn>2</mn></msup><mo>&#x0002B;</mo><msup><mi>b</mi><mn>2</mn></msup><mo>&#x0003D;</mo><msup><mi>c</mi><mn>2</mn></msup></mrow></math></p>
 <h3 id="102-块级示例">10.2 块级示例</h3>
 <p><div class="highlight"><pre><span></span><code><span class="sb">$$</span>
 <span class="nv">\Gamma</span><span class="o">(</span><span class="nb">z</span><span class="o">)</span><span class="nb"> </span><span class="o">=</span><span class="nb"> </span><span class="nv">\int</span><span class="nb">_</span><span class="m">0</span><span class="nb">^</span><span class="nv">\infty</span><span class="nb"> t^{z</span><span class="o">-</span><span class="m">1</span><span class="nb">}e^{</span><span class="o">-</span><span class="nb">t}dt</span>
@@ -386,16 +391,8 @@ $$</p>
 $$
 \Gamma(z) = \int_0^\infty t^{z-1}e^{-t}dt
 $$</p>
-<div class="arithmatex">\[
-\begin{bmatrix}
-1 &amp; 2 &amp; 3 \\
-4 &amp; 5 &amp; 6 \\
-7 &amp; 8 &amp; 9
-\end{bmatrix}
-\]</div>
-<div class="arithmatex">\[
-\forall x \in \mathbb{R}, \quad \exists y \quad \text{使得} \quad |x - y| &lt; \epsilon
-\]</div></div><script>(function(QM,_g){typeof exports=="object"&&typeof module<"u"?module.exports=_g():typeof define=="function"&&define.amd?define(_g):(QM=typeof globalThis<"u"?globalThis:QM||self,QM.mermaid=_g())})(this,function(){var $We,zWe;"use strict";function QM(i){for(var s=[],u=1;u<arguments.length;u++)s[u-1]=arguments[u];var d=Array.from(typeof i=="string"?[i]:i);d[d.length-1]=d[d.length-1].replace(/\r?\n([\t ]*)$/,"");var p=d.reduce(function(y,T){var _=T.match(/\n([\t ]+|(?!\s).)/g);return _?y.concat(_.map(function(A){var P,R;return(R=(P=A.match(/[\t ]/g))===null||P===void 0?void 0:P.length)!==null&&R!==void 0?R:0})):y},[]);if(p.length){var v=new RegExp(`
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo>&#x0005B;</mo><mtable><mtr><mtd><mn>1</mn></mtd><mtd><mi>a</mi><mi>m</mi><mi>p</mi><mi>;</mi><mn>2</mn></mtd><mtd><mi>a</mi><mi>m</mi><mi>p</mi><mi>;</mi><mn>3</mn></mtd></mtr><mtr><mtd><mn>4</mn></mtd><mtd><mi>a</mi><mi>m</mi><mi>p</mi><mi>;</mi><mn>5</mn></mtd><mtd><mi>a</mi><mi>m</mi><mi>p</mi><mi>;</mi><mn>6</mn></mtd></mtr><mtr><mtd><mn>7</mn></mtd><mtd><mi>a</mi><mi>m</mi><mi>p</mi><mi>;</mi><mn>8</mn></mtd><mtd><mi>a</mi><mi>m</mi><mi>p</mi><mi>;</mi><mn>9</mn></mtd></mtr></mtable><mo>&#x0005D;</mo></mrow></math>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo>&#x02200;</mo><mi>x</mi><mo>&#x02208;</mo><mi>&#x0211D;</mi><mo>&#x0002C;</mo><mspace width="1em" /><mo>&#x02203;</mo><mi>y</mi><mspace width="1em" /><mtext>使得</mtext><mspace width="1em" /><mo stretchy="false">&#x0007C;</mo><mi>x</mi><mo>&#x02212;</mo><mi>y</mi><mo stretchy="false">&#x0007C;</mo><mi>&</mi><mi>l</mi><mi>t</mi><mi>;</mi><mi>&#x003F5;</mi></mrow></math></div><script>(function(QM,_g){typeof exports=="object"&&typeof module<"u"?module.exports=_g():typeof define=="function"&&define.amd?define(_g):(QM=typeof globalThis<"u"?globalThis:QM||self,QM.mermaid=_g())})(this,function(){var $We,zWe;"use strict";function QM(i){for(var s=[],u=1;u<arguments.length;u++)s[u-1]=arguments[u];var d=Array.from(typeof i=="string"?[i]:i);d[d.length-1]=d[d.length-1].replace(/\r?\n([\t ]*)$/,"");var p=d.reduce(function(y,T){var _=T.match(/\n([\t ]+|(?!\s).)/g);return _?y.concat(_.map(function(A){var P,R;return(R=(P=A.match(/[\t ]/g))===null||P===void 0?void 0:P.length)!==null&&R!==void 0?R:0})):y},[]);if(p.length){var v=new RegExp(`
 [	 ]{`+Math.min.apply(Math,p)+"}","g");d=d.map(function(y){return y.replace(v,`
 `)})}d[0]=d[0].replace(/^\r?\n/,"");var b=d[0];return s.forEach(function(y,T){var _=b.match(/(?:^|\n)( *)$/),A=_?_[1]:"",P=y;typeof y=="string"&&y.includes(`
 `)&&(P=String(y).split(`
@@ -2427,5 +2424,6 @@ Expecting `+Ze.join(", ")+", got '"+(this.terminals_[Pe]||Pe)+"'":At="Parse erro
 </script>
 <script>document.addEventListener("DOMContentLoaded",function(){mermaid.initialize({startOnLoad:true});});</script>
 
+<script>document.getElementById("page-loading").remove();</script>
 </body>
 </html>
