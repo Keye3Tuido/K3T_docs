@@ -624,7 +624,17 @@ class ContentRenderer:
     def _render_pdf(self, path: str) -> str:
         """将 PDF 渲染为 canvas，base64 存在隐藏 textarea 中避免 JS 阻塞。"""
         with open(path, 'rb') as f:
-            b64 = base64.b64encode(f.read()).decode('ascii')
+            raw = f.read()
+        # 检测文件是否已经是 base64 编码的 PDF（而非真正的二进制 PDF）
+        # 真正的 PDF 以 %PDF- 开头，base64 编码的 PDF 以 JVBER 开头
+        if raw[:5] != b'%PDF-':
+            try:
+                decoded = base64.b64decode(raw, validate=True)
+                if decoded[:5] == b'%PDF-':
+                    raw = decoded
+            except Exception:
+                pass
+        b64 = base64.b64encode(raw).decode('ascii')
         # 将 base64 分块存入多个隐藏 textarea，每块 512KB
         # 每个块之间插入进度更新脚本，让浏览器边解析边更新进度
         chunk_size = 512 * 1024
