@@ -25,7 +25,7 @@ jobs:
       - name: Checkout main repo
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.K3T_DOCS_DEPLOY }}
+          token: ${{ secrets.K3T_REPOS }}
           submodules: false
 
       - name: Sync docs submodule (K3T_private/docs branch)
