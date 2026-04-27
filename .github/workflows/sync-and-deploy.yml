@@ -30,7 +30,7 @@ jobs:
 
       - name: Sync docs submodule (K3T_private/docs branch)
         run: |
-          git config --global url."https://x-access-token:${{ secrets.K3T_DOCS_DEPLOY }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ secrets.K3T_REPOS }}@github.com/".insteadOf "https://github.com/"
           rm -rf docs
           git clone --branch docs https://github.com/Keye3Tuido/K3T_private.git docs
 
