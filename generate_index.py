@@ -85,6 +85,7 @@ RENDERER_MAP: Dict[str, str] = {
     '.csv': '_render_csv',
     '.json': '_render_json',
     # 特殊格式
+    '.mmd': '_render_mermaid',
     '.mermaid': '_render_mermaid',
     '.tex': '_render_latex',
     '.latex': '_render_latex',
@@ -1159,7 +1160,7 @@ document.addEventListener("DOMContentLoaded", function() {
   });
 });
 </script>\n'''
-        if page_type in ('.mermaid', '.md'):
+        if page_type in ('.mmd', '.mermaid', '.md'):
             extra_body += f'<script>{self._get_mermaid_js()}</script>\n'
             extra_body += '<script>document.addEventListener("DOMContentLoaded",function(){mermaid.initialize({startOnLoad:true});});</script>\n'
         if page_type in RENDERER_MAP and RENDERER_MAP.get(page_type) == '_render_code':
@@ -1189,6 +1190,16 @@ th {{ background: #f5f5f5; font-weight: 600; }}
 tr:nth-child(even) {{ background: #fafafa; }}
 pre {{ background: #f6f8fa; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 0.85em; }}
 code {{ font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9em; }}
+.markdown-body blockquote {{
+    margin: 1.2em 0;
+    padding: 0.9em 1.1em;
+    border-left: 4px solid #4a90d9;
+    background: #f7fbff;
+    color: #4b5563;
+    border-radius: 0 6px 6px 0;
+}}
+.markdown-body blockquote > :first-child {{ margin-top: 0; }}
+.markdown-body blockquote > :last-child {{ margin-bottom: 0; }}
 .unsupported {{ text-align: center; padding: 60px 20px; color: #999; }}
 .markdown-body {{ max-width: 900px; margin: 0 auto; }}
 @media (max-width: 600px) {{
@@ -1385,7 +1396,7 @@ class IndexGenerator:
             '.svg': '🖼️', '.bmp': '🖼️', '.webp': '🖼️',
             '.docx': '📄', '.xlsx': '📊',
             '.csv': '📊', '.json': '📋',
-            '.mermaid': '📐', '.tex': '📐', '.latex': '📐',
+            '.mmd': '📐', '.mermaid': '📐', '.tex': '📐', '.latex': '📐',
             '.py': '🐍', '.java': '☕', '.js': '📜', '.ts': '📜',
             '.cpp': '⚙️', '.hpp': '⚙️', '.c': '⚙️', '.h': '⚙️',
             '.go': '🔵', '.rs': '🦀', '.rb': '💎', '.php': '🐘',
