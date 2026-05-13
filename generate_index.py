@@ -228,10 +228,34 @@ class ContentRenderer:
         text = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', _replace_img, text)
 
         # 处理 Mermaid 代码块：替换为 div 以便前端渲染
+        # 先保护非 mermaid 代码块（如 ```text, ```python 等），避免内嵌 mermaid 被错误替换
+        code_blocks = []
+        def _save_code_block(match):
+            fence = match.group(1)  # 开头的反引号序列
+            lang = match.group(2) or ''
+            code = match.group(3)
+            idx = len(code_blocks)
+            code_blocks.append((fence, lang, code))
+            return f'\n<!--CODE_BLOCK_{idx}-->\n'
+        # 匹配所有 fenced code block（含 3+ 反引号），排除 ```mermaid
+        text = re.sub(
+            r'(``{3,})(?!`*mermaid\b)\s*(\w*)\n(.*?)\1',
+            _save_code_block, text, flags=re.DOTALL,
+        )
+
         def _replace_mermaid(match):
             code = html_module.escape(match.group(1))
             return f'<div class="mermaid">{code}</div>'
         text = re.sub(r'```mermaid\s*\n(.*?)```', _replace_mermaid, text, flags=re.DOTALL)
+
+        # 恢复被保护的代码块
+        def _restore_code_block(match):
+            idx = int(match.group(1))
+            fence, lang, code = code_blocks[idx]
+            if lang:
+                return f'{fence}{lang}\n{code}{fence}'
+            return f'{fence}\n{code}{fence}'
+        text = re.sub(r'<!--CODE_BLOCK_(\d+)-->', _restore_code_block, text)
 
         # 预处理：提取数学公式并用占位符替换，防止 Markdown 破坏 LaTeX 语法 $ 公式转换为 $$ 块级公式，确保 arithmatex 能正确捕获
         text, math_store = self._protect_math(text)
