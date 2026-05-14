@@ -1323,7 +1323,7 @@ clearInterval(window.__loadTimer);
         # 尝试从 CDN 下载并缓存
         try:
             import urllib.request
-            url = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js'
+            url = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js'
             os.makedirs(cache_dir, exist_ok=True)
             urllib.request.urlretrieve(url, cache_file)
             with open(cache_file, 'r', encoding='utf-8') as f:
